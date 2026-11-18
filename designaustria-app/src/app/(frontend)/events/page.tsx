@@ -4,6 +4,10 @@ import React from 'react'
 import config from '@/payload.config'
 import { Event } from '@/components/Event/Event'
 
+// Render on every request, so new events from the admin show up immediately
+// (and the build doesn't need to query the database).
+export const dynamic = 'force-dynamic'
+
 // Visit /events to see this page.
 export default async function EventsPage() {
   const payload = await getPayload({ config })

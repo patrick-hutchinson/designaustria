@@ -2,10 +2,15 @@ import type { CollectionConfig } from 'payload'
 
 import { imageSizes } from '../images'
 
+import { isStaff } from '@/access/roles'
+
 export const Media: CollectionConfig = {
   slug: 'media',
   access: {
     read: () => true,
+    create: isStaff,
+    update: isStaff,
+    delete: isStaff,
   },
   fields: [
     {

@@ -80,11 +80,17 @@ async function main() {
   })
   check(roleMismatch.length === 0, `roles match WordPress (admins: ${users.filter((u) => u.roles.includes('admin')).length})`)
   // legacyPasswordHash is hidden from the API, so count it in the database directly.
+  // Users with a password on the new site (legacy_password_retired_at) must not have a WordPress hash any more.
   const hashRows = (await payload.db.drizzle.execute(
-    sql`SELECT count(*)::int AS n FROM users WHERE legacy_wp_id IS NOT NULL AND legacy_password_hash IS NOT NULL`,
-  )) as unknown as { rows: { n: number }[] }
-  const expectedHashes = users.filter((u) => u.legacyPasswordHash).length
-  check(hashRows.rows[0].n === expectedHashes, `WordPress password hash stored for ${hashRows.rows[0].n}/${expectedHashes} users`)
+    sql`SELECT legacy_wp_id AS id, legacy_password_hash IS NOT NULL AS has_hash, legacy_password_retired_at IS NOT NULL AS retired
+        FROM users WHERE legacy_wp_id IS NOT NULL`,
+  )) as unknown as { rows: { id: number; has_hash: boolean; retired: boolean }[] }
+  const retired = new Set(hashRows.rows.filter((r) => r.retired).map((r) => Number(r.id))) // numeric column: string
+  const withHash = hashRows.rows.filter((r) => r.has_hash).length
+  const expectedHashes = users.filter((u) => u.legacyPasswordHash && !retired.has(u.legacyWpId)).length
+  check(withHash === expectedHashes, `WordPress password hash stored for ${withHash}/${expectedHashes} users`)
+  const retiredWithHash = hashRows.rows.filter((r) => r.retired && r.has_hash).length
+  check(retiredWithHash === 0, `no WordPress hash on the ${retired.size} users who already have a password on the new site`)
 
   console.log('\nMembers')
   const byLegacy = new Map(pMembers.map((doc) => [doc.legacyWpId as number, doc]))

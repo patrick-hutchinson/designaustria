@@ -94,3 +94,5 @@ npm run wp:verify                     # fails on any mismatch with the extract
   organisation links) and is upserted by it. Relationships are resolved through those keys, so rerunning updates records
   instead of duplicating them (tested: a second run updates all records, row counts unchanged).
 - **Verify** only reads.
+- **Passwords**: a user who already has a password on the new site (first login with the WordPress password, a change
+  or a reset; `legacyPasswordRetiredAt` is set) keeps it. The import doesn't write their WordPress hash again (plan §6).

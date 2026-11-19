@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import type { CollectionSlug, Payload } from 'payload'
+import type { CollectionSlug, Payload, Where } from 'payload'
 
 import {
   EXTRACT_FILES,
@@ -36,10 +36,10 @@ const readExtract = <T>(file: string): T[] => JSON.parse(readFileSync(path.join(
 type IdMap = Map<number | string, number>
 
 /** legacy key → Payload id, for resolving relationships. */
-async function idMap(payload: Payload, collection: CollectionSlug, keyField = 'legacyWpId'): Promise<IdMap> {
+async function idMap(payload: Payload, collection: CollectionSlug, keyField = 'legacyWpId', filter: Where = {}): Promise<IdMap> {
   const { docs } = await payload.find({
     collection,
-    where: { [keyField]: { exists: true } },
+    where: { and: [{ [keyField]: { exists: true } }, filter] },
     select: { [keyField]: true },
     pagination: false,
     depth: 0,
@@ -126,13 +126,21 @@ async function main() {
 
   if (wants('users')) {
     const users = readExtract<ExtractedUser>(EXTRACT_FILES.users)
+    // Users who already have a password on the new site (first login, change or reset) keep it: their WordPress
+    // hash is never written again, or an old WordPress password could replace the new one (plan §6).
+    const retired = await idMap(payload, 'users', 'legacyWpId', { legacyPasswordRetiredAt: { exists: true } })
+    if (retired.size) console.log(`users: ${retired.size} already have a password on the new site; WordPress hash not written`)
     results.users = await runStep('users', users, report, (u) =>
       upsertByLegacyKey({
         payload,
         collection: 'users',
         key: u.legacyWpId,
-        // The WP hash is written on every run until go-live (WordPress stays the source of truth until cutover).
-        data: { email: u.email, roles: u.roles, legacyPasswordHash: u.legacyPasswordHash },
+        // Otherwise the WP hash is written on every run until go-live (WordPress stays the source of truth until cutover).
+        data: {
+          email: u.email,
+          roles: u.roles,
+          ...(retired.has(u.legacyWpId) ? {} : { legacyPasswordHash: u.legacyPasswordHash }),
+        },
         // Unusable random password; the first login checks the WP hash instead (plan §6).
         createOnly: { password: randomBytes(32).toString('base64url') },
         dryRun: args.dryRun,

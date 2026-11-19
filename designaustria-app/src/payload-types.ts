@@ -154,6 +154,10 @@ export interface User {
   };
   legacyPasswordHash?: string | null;
   /**
+   * When this login got a password on the new site (first login with the WordPress password, a change or a reset). Empty on an imported login: it still uses its WordPress password.
+   */
+  legacyPasswordRetiredAt?: string | null;
+  /**
    * WordPress user ID, set by the migration.
    */
   legacyWpId?: number | null;
@@ -596,6 +600,7 @@ export interface UsersSelect<T extends boolean = true> {
   roles?: T;
   member?: T;
   legacyPasswordHash?: T;
+  legacyPasswordRetiredAt?: T;
   legacyWpId?: T;
   updatedAt?: T;
   createdAt?: T;

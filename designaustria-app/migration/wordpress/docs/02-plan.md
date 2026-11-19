@@ -51,7 +51,7 @@ WordPress already separates the login from the profile, and the data shows why t
 Merging both into one auth collection would force a login (an email plus a dummy password) onto every profile, and would mix
 admin-only membership data with the account. So:
 - `users` stays an auth collection: `email`, `roles`, `member` (join field, read-only view of the linked profile), `legacyWpId`, and
-  `legacyPasswordHash` (hidden, see §6).
+  `legacyPasswordHash` (hidden) plus `legacyPasswordRetiredAt`, see §6.
 - `members` has an optional, **unique** `user` relationship. That's the only place the link is stored, so the two sides can't disagree.
 - One user ↔ at most one member. The 3 users linked to 2 profiles are resolved by the dedupe step (§4).
 
@@ -205,7 +205,9 @@ These come from §8 of 01-analysis.md. They block only the parts noted.
    migrate them as members with `newsletter = true` (§3.1). Doesn't block the build; they can be removed or moved later.
 2. **Fee collection**: is there an external system (accounting tool or SEPA export) that reads IBAN and frequency? Decides whether `billing` should be authoritative in Payload or a sync target.
 3. **Community admin rights**: label only, or edit rights? Doesn't block the import (the role is migrated either way); it blocks access control.
-4. **Passwords**: see §6.
+4. **Passwords**: transparent upgrade on first login, or a "set your password" mail to everyone at launch (§6)? Current
+   decision: transparent upgrade, built in step 4. Still open: how many months to keep the WordPress hashes (§6 point 4),
+   and whether to mail members anyway at launch.
 
 ---
 
@@ -214,16 +216,27 @@ These come from §8 of 01-analysis.md. They block only the parts noted.
 WP hashes can't be checked by Payload's local strategy. The real dump may contain two formats: phpass (`$P$…`, every row in
 the anonymised dump) and WordPress ≥ 6.8 bcrypt (`$wp$2y$…`).
 
-**Proposed: transparent upgrade**
-1. Import each user with a random, unusable Payload password and store the WP hash in `legacyPasswordHash` (hidden, staff can't read it).
-2. A custom login endpoint first tries the normal Payload login. If that fails and `legacyPasswordHash` is set, it verifies the
-   password against the WP hash (phpass or `$wp$` bcrypt). On success it sets it as the Payload password, clears
-   `legacyPasswordHash`, and logs the user in.
-3. "Forgot password" works as normal for everyone.
+**Built: transparent upgrade** (step 4)
+1. The import creates each user with a random, unusable Payload password and stores the WP hash in `legacyPasswordHash`
+   (hidden; not readable or writable through the API or admin, staff included).
+2. On login, a `beforeOperation` hook on `users` (`src/auth/legacyPassword.ts`) runs before Payload checks the password. If the
+   user has a WP hash, isn't locked out, and the password matches it (phpass, `$wp$` bcrypt, plain bcrypt or MD5, the same
+   formats `wp_check_password()` accepts), the password becomes the user's Payload password, the hash is cleared and
+   `legacyPasswordRetiredAt` is set. Payload's normal login then succeeds.
+   - It's a hook in Payload's login operation, not a separate endpoint, so the admin panel, REST, GraphQL and the Local API
+     all get it, and the frontend uses the standard `/api/users/login`.
+   - A wrong password changes nothing: Payload's normal login fails and counts the attempt (5 attempts, 10 min lockout).
+3. "Forgot password" works as normal for everyone. Any new password (reset, account settings, admin) also clears the WP hash
+   and sets `legacyPasswordRetiredAt`, so an old WordPress password can never replace one set on the new site.
 4. After N months, clear any remaining legacy hashes; those users use "forgot password".
 
-The import writes the WordPress hash on every run, so WordPress stays the source of truth until cutover. Once the login
-endpoint exists, the import must not put a hash back on a user who has already logged in on the new site (step 4).
+The import writes the WordPress hash on every run, so WordPress stays the source of truth until cutover, **except** for users
+with `legacyPasswordRetiredAt` set: they already have a password on the new site, so their hash is never written again. Verify
+checks both (hash count, and no hash on a retired user). Staff see the date as "Password set on new site" in the user sidebar.
+
+Tests: `tests/int/wordpress-password.int.spec.ts` checks the hash code against hashes made by WordPress's own code
+(`tests/fixtures/wordpress-password-hashes.json`, test passwords only); `tests/int/legacy-login.int.spec.ts` covers the login
+flow (upgrade, second login, wrong password, lockout, change, reset, no access to the hidden fields).
 
 Alternative: drop the hashes and send everyone a "set your password" mail at launch. It's simpler, but every member has to act
 at launch, and outdated email addresses lead to support requests.
@@ -294,7 +307,7 @@ migration/wordpress/
    `organization-members`, `categories`; Payload migration.
 2. `lib/` and unit tests (`parseIdList`, unserialise, status split, merges).
 3. Extract and import for categories, users, organisations, members and links, using the anonymised dump. Verify.
-4. Legacy login endpoint (§6).
+4. Legacy login: WordPress password checked on first login, then moved to Payload (§6). Done.
 5. Staging rehearsal with the real dump, then cutover.
 
 Steps 1–3 can start now; none of the open decisions in §5 block them.

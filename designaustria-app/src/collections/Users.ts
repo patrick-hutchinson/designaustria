@@ -1,6 +1,11 @@
 import type { CollectionConfig } from 'payload'
 
-import { ROLES, hasRole, isAdmin, isAdminField, isStaffUser, nobody } from '@/access/roles'
+import { ROLES, hasRole, isAdmin, isAdminField, isStaffField, isStaffUser, nobody } from '@/access/roles'
+import {
+  retireWordPressPasswordOnChange,
+  retireWordPressPasswordOnReset,
+  upgradeWordPressPasswordOnLogin,
+} from '@/auth/legacyPassword'
 import { legacyWpIdField } from '@/fields/legacyWpId'
 
 // Login accounts only. A person's data (name, address, membership) lives on `members`,
@@ -30,7 +35,11 @@ export const Users: CollectionConfig = {
     delete: isAdmin,
   },
   hooks: {
+    // WordPress passwords: checked on first login, then replaced by a Payload password (plan §6).
+    beforeOperation: [upgradeWordPressPasswordOnLogin],
+    afterOperation: [retireWordPressPasswordOnReset],
     beforeChange: [
+      retireWordPressPasswordOnChange,
       // The very first account (create-first-user screen) becomes admin.
       // Not for the WordPress import, which sets roles itself (and may start on an empty database).
       async ({ context, data, operation, req }) => {
@@ -67,6 +76,20 @@ export const Users: CollectionConfig = {
       type: 'text',
       hidden: true,
       access: { read: nobody, create: nobody, update: nobody },
+    },
+    {
+      // Once set, the WordPress hash is gone for good: the import no longer writes it for this user.
+      name: 'legacyPasswordRetiredAt',
+      type: 'date',
+      label: 'Password set on new site',
+      access: { read: isStaffField, create: nobody, update: nobody },
+      admin: {
+        readOnly: true,
+        position: 'sidebar',
+        date: { pickerAppearance: 'dayAndTime' },
+        description:
+          'When this login got a password on the new site (first login with the WordPress password, a change or a reset). Empty on an imported login: it still uses its WordPress password.',
+      },
     },
     legacyWpIdField('WordPress user ID, set by the migration.'),
   ],

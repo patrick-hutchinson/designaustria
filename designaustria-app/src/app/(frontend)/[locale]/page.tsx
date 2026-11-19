@@ -4,8 +4,20 @@ import { getPayload } from 'payload'
 import React from 'react'
 import { fileURLToPath } from 'url'
 
+import type { Metadata } from 'next'
+
 import config from '@/payload.config'
-import './styles.css'
+import { getAlternates, isLocale } from '@/i18n'
+import '../styles.css'
+
+// Canonical and hreflang tags for the home page (/de, /en).
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await props.params
+  if (!isLocale(locale)) return {}
+  return { alternates: getAlternates(locale, '') }
+}
 
 export default async function HomePage() {
   const headers = await getHeaders()

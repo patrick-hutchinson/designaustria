@@ -68,6 +68,10 @@ export interface Config {
   blocks: {};
   collections: {
     users: User;
+    members: Member;
+    organizations: Organization;
+    'organization-members': OrganizationMember;
+    categories: Category;
     media: Media;
     events: Event;
     'payload-kv': PayloadKv;
@@ -75,9 +79,23 @@ export interface Config {
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    users: {
+      member: 'members';
+    };
+    members: {
+      organizations: 'organization-members';
+    };
+    organizations: {
+      people: 'organization-members';
+    };
+  };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
+    members: MembersSelect<false> | MembersSelect<true>;
+    organizations: OrganizationsSelect<false> | OrganizationsSelect<true>;
+    'organization-members': OrganizationMembersSelect<false> | OrganizationMembersSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -125,6 +143,24 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
+  roles: ('admin' | 'staff' | 'member')[];
+  /**
+   * The member profile linked to this login.
+   */
+  member?: {
+    docs?: (number | Member)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  legacyPasswordHash?: string | null;
+  /**
+   * When this login got a password on the new site (first login with the WordPress password, a change or a reset). Empty on an imported login: it still uses its WordPress password.
+   */
+  legacyPasswordRetiredAt?: string | null;
+  /**
+   * WordPress user ID, set by the migration.
+   */
+  legacyWpId?: number | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -144,6 +180,291 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "members".
+ */
+export interface Member {
+  id: number;
+  /**
+   * Title + first name + last name (set automatically).
+   */
+  fullName?: string | null;
+  salutation?: ('d' | 'f' | 'm' | 'i') | null;
+  /**
+   * Academic title, e.g. Mag.
+   */
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  /**
+   * Not public.
+   */
+  birthdate?: string | null;
+  deathYear?: number | null;
+  /**
+   * Contact address; the login email is on the user.
+   */
+  contactEmail?: string | null;
+  contactEmailPublic?: boolean | null;
+  /**
+   * Professional identity / company name
+   */
+  companyName?: string | null;
+  jobTitle?: string | null;
+  employmentType?: ('employed' | 'selfEmployed') | null;
+  about?: string | null;
+  /**
+   * Banner on the profile
+   */
+  motto?: string | null;
+  education?: string | null;
+  additionalQualification?: string | null;
+  /**
+   * Focus area not in the category list
+   */
+  otherFocus?: string | null;
+  keywords?: string | null;
+  /**
+   * Focus areas and regions
+   */
+  categories?: (number | Category)[] | null;
+  addresses?:
+    | {
+        type?: ('office' | 'private') | null;
+        visibility?: ('public' | 'private') | null;
+        street?: string | null;
+        /**
+         * House number / staircase / door
+         */
+        number?: string | null;
+        zip?: string | null;
+        city?: string | null;
+        /**
+         * ISO code, e.g. AT
+         */
+        country?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  phones?:
+    | {
+        type?: ('office' | 'mobile' | 'fax') | null;
+        number?: string | null;
+        visibility?: ('public' | 'private') | null;
+        id?: string | null;
+      }[]
+    | null;
+  links?:
+    | {
+        type?: ('web' | 'instagram' | 'facebook' | 'behance' | 'linkedin' | 'x' | 'xing' | 'blog') | null;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Not unique: colleagues in an organisation share its number with a -N suffix.
+   */
+  memberNumber?: string | null;
+  tier?: ('standard' | 'youngProfessional' | 'student' | 'retiree' | 'corporate' | 'education') | null;
+  honorary?: ('member' | 'president') | null;
+  functions?: ('staff' | 'board')[] | null;
+  /**
+   * e.g. 2022-2024
+   */
+  boardTerms?: string[] | null;
+  bildrecht?: boolean | null;
+  newsletter?: boolean | null;
+  billing?: {
+    paymentType?: 'sepa' | null;
+    paymentFrequency?: ('yearly' | 'quarterly') | null;
+    iban?: string | null;
+    /**
+     * EUR, only if different from the tier fee
+     */
+    feeOverride?: number | null;
+    feeNote?: string | null;
+  };
+  organizations?: {
+    docs?: (number | OrganizationMember)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  portfolio?:
+    | {
+        name?: string | null;
+        visibility?: ('public' | 'private') | null;
+        imageWpIds?: number[] | null;
+        id?: string | null;
+      }[]
+    | null;
+  documents?:
+    | {
+        type?: ('dissertation' | 'thesis' | 'paper' | 'publication' | 'book' | 'misc') | null;
+        name?: string | null;
+        fileWpId?: number | null;
+        id?: string | null;
+      }[]
+    | null;
+  legacy?: {
+    /**
+     * WordPress post_date
+     */
+    createdAt?: string | null;
+    displayOptIns?: ('email' | 'frontpage')[] | null;
+    motivation?: string | null;
+    /**
+     * Old status value "active"; meaning unknown.
+     */
+    activeFlag?: boolean | null;
+    /**
+     * WordPress member posts merged into this one (duplicates).
+     */
+    mergedFromWpIds?: number[] | null;
+    avatarWpId?: number | null;
+    studentProofWpId?: number | null;
+  };
+  /**
+   * Only "Published" profiles are public. Copied as-is from WordPress.
+   */
+  profileStatus: 'publish' | 'pending' | 'draft' | 'private';
+  /**
+   * Login account, if this person has one.
+   */
+  user?: (number | null) | User;
+  /**
+   * URL part of the public profile.
+   */
+  slug?: string | null;
+  /**
+   * WordPress member post ID, set by the migration.
+   */
+  legacyWpId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  title: string;
+  slug?: string | null;
+  parent?: (number | null) | Category;
+  /**
+   * WordPress term ID, set by the migration.
+   */
+  legacyWpId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "organization-members".
+ */
+export interface OrganizationMember {
+  id: number;
+  organization: number | Organization;
+  member: number | Member;
+  role: 'member' | 'admin';
+  /**
+   * Set by the WordPress migration.
+   */
+  legacyKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "organizations".
+ */
+export interface Organization {
+  id: number;
+  name: string;
+  memberNumber?: string | null;
+  partnerStatus?: ('partner' | 'premium' | 'education')[] | null;
+  about?: string | null;
+  /**
+   * Focus areas and regions
+   */
+  categories?: (number | Category)[] | null;
+  addresses?:
+    | {
+        type?: ('office' | 'private') | null;
+        visibility?: ('public' | 'private') | null;
+        street?: string | null;
+        /**
+         * House number / staircase / door
+         */
+        number?: string | null;
+        zip?: string | null;
+        city?: string | null;
+        /**
+         * ISO code, e.g. AT
+         */
+        country?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  phones?:
+    | {
+        type?: ('office' | 'mobile' | 'fax') | null;
+        number?: string | null;
+        visibility?: ('public' | 'private') | null;
+        id?: string | null;
+      }[]
+    | null;
+  links?:
+    | {
+        type?: ('web' | 'instagram' | 'facebook' | 'behance' | 'linkedin' | 'x' | 'xing' | 'blog') | null;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  people?: {
+    docs?: (number | OrganizationMember)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  portfolio?:
+    | {
+        name?: string | null;
+        visibility?: ('public' | 'private') | null;
+        imageWpIds?: number[] | null;
+        id?: string | null;
+      }[]
+    | null;
+  documents?:
+    | {
+        type?: ('dissertation' | 'thesis' | 'paper' | 'publication' | 'book' | 'misc') | null;
+        name?: string | null;
+        fileWpId?: number | null;
+        id?: string | null;
+      }[]
+    | null;
+  legacy?: {
+    /**
+     * WordPress post_date
+     */
+    createdAt?: string | null;
+    logoWpId?: number | null;
+  };
+  /**
+   * Only "Published" profiles are public. Copied as-is from WordPress.
+   */
+  profileStatus: 'publish' | 'pending' | 'draft' | 'private';
+  /**
+   * URL part of the public profile.
+   */
+  slug?: string | null;
+  /**
+   * WordPress community post ID, set by the migration.
+   */
+  legacyWpId?: number | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -206,6 +527,22 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'members';
+        value: number | Member;
+      } | null)
+    | ({
+        relationTo: 'organizations';
+        value: number | Organization;
+      } | null)
+    | ({
+        relationTo: 'organization-members';
+        value: number | OrganizationMember;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -260,6 +597,11 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  roles?: T;
+  member?: T;
+  legacyPasswordHash?: T;
+  legacyPasswordRetiredAt?: T;
+  legacyWpId?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -277,6 +619,198 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "members_select".
+ */
+export interface MembersSelect<T extends boolean = true> {
+  fullName?: T;
+  salutation?: T;
+  title?: T;
+  firstName?: T;
+  lastName?: T;
+  birthdate?: T;
+  deathYear?: T;
+  contactEmail?: T;
+  contactEmailPublic?: T;
+  companyName?: T;
+  jobTitle?: T;
+  employmentType?: T;
+  about?: T;
+  motto?: T;
+  education?: T;
+  additionalQualification?: T;
+  otherFocus?: T;
+  keywords?: T;
+  categories?: T;
+  addresses?:
+    | T
+    | {
+        type?: T;
+        visibility?: T;
+        street?: T;
+        number?: T;
+        zip?: T;
+        city?: T;
+        country?: T;
+        id?: T;
+      };
+  phones?:
+    | T
+    | {
+        type?: T;
+        number?: T;
+        visibility?: T;
+        id?: T;
+      };
+  links?:
+    | T
+    | {
+        type?: T;
+        url?: T;
+        id?: T;
+      };
+  memberNumber?: T;
+  tier?: T;
+  honorary?: T;
+  functions?: T;
+  boardTerms?: T;
+  bildrecht?: T;
+  newsletter?: T;
+  billing?:
+    | T
+    | {
+        paymentType?: T;
+        paymentFrequency?: T;
+        iban?: T;
+        feeOverride?: T;
+        feeNote?: T;
+      };
+  organizations?: T;
+  portfolio?:
+    | T
+    | {
+        name?: T;
+        visibility?: T;
+        imageWpIds?: T;
+        id?: T;
+      };
+  documents?:
+    | T
+    | {
+        type?: T;
+        name?: T;
+        fileWpId?: T;
+        id?: T;
+      };
+  legacy?:
+    | T
+    | {
+        createdAt?: T;
+        displayOptIns?: T;
+        motivation?: T;
+        activeFlag?: T;
+        mergedFromWpIds?: T;
+        avatarWpId?: T;
+        studentProofWpId?: T;
+      };
+  profileStatus?: T;
+  user?: T;
+  slug?: T;
+  legacyWpId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "organizations_select".
+ */
+export interface OrganizationsSelect<T extends boolean = true> {
+  name?: T;
+  memberNumber?: T;
+  partnerStatus?: T;
+  about?: T;
+  categories?: T;
+  addresses?:
+    | T
+    | {
+        type?: T;
+        visibility?: T;
+        street?: T;
+        number?: T;
+        zip?: T;
+        city?: T;
+        country?: T;
+        id?: T;
+      };
+  phones?:
+    | T
+    | {
+        type?: T;
+        number?: T;
+        visibility?: T;
+        id?: T;
+      };
+  links?:
+    | T
+    | {
+        type?: T;
+        url?: T;
+        id?: T;
+      };
+  people?: T;
+  portfolio?:
+    | T
+    | {
+        name?: T;
+        visibility?: T;
+        imageWpIds?: T;
+        id?: T;
+      };
+  documents?:
+    | T
+    | {
+        type?: T;
+        name?: T;
+        fileWpId?: T;
+        id?: T;
+      };
+  legacy?:
+    | T
+    | {
+        createdAt?: T;
+        logoWpId?: T;
+      };
+  profileStatus?: T;
+  slug?: T;
+  legacyWpId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "organization-members_select".
+ */
+export interface OrganizationMembersSelect<T extends boolean = true> {
+  organization?: T;
+  member?: T;
+  role?: T;
+  legacyKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  parent?: T;
+  legacyWpId?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

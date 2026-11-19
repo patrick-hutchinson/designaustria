@@ -25,7 +25,8 @@ export async function seedTestUser(): Promise<void> {
   // Create fresh test user
   await payload.create({
     collection: 'users',
-    data: testUser,
+    // Admin role: only admin/staff may open /admin.
+    data: { ...testUser, roles: ['admin'] },
   })
 }
 

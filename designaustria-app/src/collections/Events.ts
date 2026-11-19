@@ -1,5 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
+import { isStaff } from '@/access/roles'
+
 // A collection = a content type. Payload creates the database table,
 // the admin UI ("Events" in the sidebar) and the API from this one file.
 export const Events: CollectionConfig = {
@@ -10,6 +12,10 @@ export const Events: CollectionConfig = {
   },
   access: {
     read: () => true, // anyone may read events (needed for the public website)
+    // Writes are staff-only: members can log in too, and Payload's default allows any logged-in user.
+    create: isStaff,
+    update: isStaff,
+    delete: isStaff,
   },
   fields: [
     {

@@ -1,0 +1,26 @@
+# Throwaway MySQL used only to read the WordPress export.
+# Not part of the app runtime. Data is disposable: 00-load-dump.sh recreates it.
+name: designaustria-wp-migration
+
+services:
+  wp-mysql:
+    image: mysql:8.4
+    container_name: designaustria-wp-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: wp
+      MYSQL_DATABASE: wordpress
+    ports:
+      - '127.0.0.1:3307:3306'
+    command:
+      - --max_allowed_packet=512M
+      - --sql_mode=NO_AUTO_VALUE_ON_ZERO
+    volumes:
+      - wp-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-pwp']
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  wp-mysql-data:

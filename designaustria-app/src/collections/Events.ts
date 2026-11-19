@@ -28,13 +28,18 @@ export const Events: CollectionConfig = {
     },
     {
       name: 'location',
-      type: 'text', // not localized: same for both languages
+      type: 'text',
       required: true,
       localized: true, // separate German and English value
     },
     {
+      name: 'media',
+      type: 'upload', // pick or upload a file from the Media collection
+      relationTo: 'media',
+    },
+    {
       name: 'description',
-      type: 'textarea',
+      type: 'richText', // Lexical editor (set in payload.config.ts), stored as JSON
       localized: true,
     },
   ],

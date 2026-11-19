@@ -166,7 +166,9 @@ reuse it in their own migration later. Terms that no longer exist (e.g. id 174) 
 
 - Decode HTML entities (`HFA-Studio GmbH &amp; Co KG`).
 - Trim whitespace; empty string → `null`.
-- Country: keep the ISO code if present, otherwise map free text ("Österreich" → `AT`), and log anything unmapped.
+- Country: keep the ISO code if present, otherwise map free text ("Österreich", typos like "Österrich", Austrian states → `AT`),
+  and log anything unmapped. `scripts/analyze/check-helpers.ts` lists unmapped values for each new dump.
+- Phone type `fax` (198 rows, no longer an ACF choice) is kept as its own type.
 - URLs: add `https://` where it's missing; log invalid ones.
 
 ---
@@ -180,11 +182,18 @@ The rules come from the duplicate analysis in §3 of 01-analysis.md. They're app
 | `000000-N` placeholder collisions | Not duplicates. Import all; `memberNumber` empty. |
 | Bulk copy (IDs 25015–25022) | **Merge** into the original: profile content from the original, `user` from the copy, `tier` from the copy, `honorary` from the original. Record the copy's id in `legacy.mergedFromWpIds`. |
 | Re-registration | **Merge** into the newer profile (it has the login); the old profile's id goes to `mergedFromWpIds`. |
-| Duplicate Post clones | Per case, via the overrides file. |
+| Duplicate Post clones | Per case: merge if it's the same person, otherwise `unlinkUser` when the clone kept the original's login. |
 
-Auto-detection only proposes merges. The final list lives in `migration/wordpress/config/merges.json`
-(`{ "keep": 5502, "mergeFrom": [25016], "note": "bulk copy" }`), which is reviewed and committed, so reruns are deterministic.
-The extract step fails if a user would end up linked to two members after merging.
+The decisions live in `config/merges.json`, reviewed and committed, so reruns are deterministic:
+
+- `merges`: `{ keep, mergeFrom, takeFromMerged?, reason, review? }`. `takeFromMerged` lists fields copied from the merged
+  posts (e.g. `user`, `tier` for bulk copies); everything else comes from `keep`.
+- `unlinkUser`: `{ member, reason }` drops a wrong login link (member 31740, a clone of another person that kept user 231).
+- `review: true` marks a provisional decision; the extract prints it as a warning on every run until it's confirmed.
+  Currently provisional: users 173 and 510 (each linked to two profiles of what looks like one person) and member nr 110001.
+- Organisation links of a merged-away profile move to the profile that's kept.
+
+The extract fails if a rule points to a profile that doesn't exist, or if a login would still be linked to two members.
 
 ---
 

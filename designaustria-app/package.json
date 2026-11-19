@@ -16,9 +16,11 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "test": "pnpm run test:int && pnpm run test:e2e",
     "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import=tsx/esm\" playwright test --config=playwright.config.ts",
-    "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
+    "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts",
+    "test:migration": "vitest run --config ./migration/wordpress/vitest.config.mts"
   },
   "dependencies": {
+    "@payloadcms/db-postgres": "3.94.0",
     "@payloadcms/next": "3.94.0",
     "@payloadcms/richtext-lexical": "3.94.0",
     "@payloadcms/ui": "3.94.0",
@@ -29,8 +31,7 @@
     "payload": "3.94.0",
     "react": "19.2.9",
     "react-dom": "19.2.9",
-    "sharp": "0.35.4",
-    "@payloadcms/db-postgres": "3.94.0"
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
@@ -42,6 +43,7 @@
     "eslint": "^9.16.0",
     "eslint-config-next": "16.4.6",
     "jsdom": "28.0.0",
+    "mysql2": "^3.24.6",
     "prettier": "^3.4.2",
     "tsx": "4.23.15",
     "typescript": "5.7.3",

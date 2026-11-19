@@ -91,6 +91,7 @@ export const phonesField: ArrayField = {
           options: [
             { label: 'Office', value: 'office' },
             { label: 'Mobile', value: 'mobile' },
+            { label: 'Fax', value: 'fax' },
           ],
         },
         { name: 'number', type: 'text' },

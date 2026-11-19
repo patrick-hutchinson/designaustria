@@ -246,7 +246,7 @@ export interface Member {
     | null;
   phones?:
     | {
-        type?: ('office' | 'mobile') | null;
+        type?: ('office' | 'mobile' | 'fax') | null;
         number?: string | null;
         visibility?: ('public' | 'private') | null;
         id?: string | null;
@@ -406,7 +406,7 @@ export interface Organization {
     | null;
   phones?:
     | {
-        type?: ('office' | 'mobile') | null;
+        type?: ('office' | 'mobile' | 'fax') | null;
         number?: string | null;
         visibility?: ('public' | 'private') | null;
         id?: string | null;

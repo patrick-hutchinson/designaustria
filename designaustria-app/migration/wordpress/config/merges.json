@@ -1,0 +1,41 @@
+{
+  "merges": [
+    { "keep": 3669, "mergeFrom": [25022], "takeFromMerged": ["user", "tier"], "reason": "bulk copy (member nr 000017): content from original, login + tier from copy" },
+    { "keep": 5502, "mergeFrom": [25016], "takeFromMerged": ["user", "tier"], "reason": "bulk copy (member nr 010340)" },
+    { "keep": 4268, "mergeFrom": [25018], "takeFromMerged": ["user", "tier"], "reason": "bulk copy (member nr 010710)" },
+    { "keep": 3926, "mergeFrom": [25021], "takeFromMerged": ["user", "tier"], "reason": "bulk copy (member nr 010743)" },
+    { "keep": 5086, "mergeFrom": [25017], "takeFromMerged": ["user", "tier"], "reason": "bulk copy (member nr 061114)" },
+    { "keep": 7245, "mergeFrom": [25015], "takeFromMerged": ["user", "tier"], "reason": "bulk copy (member nr 081153)" },
+
+    { "keep": 32011, "mergeFrom": [3015], "reason": "re-registration (member nr 011685): newer profile with login wins" },
+    { "keep": 29821, "mergeFrom": [12824], "reason": "re-registration (member nr 012477): newer profile with login wins" },
+    { "keep": 34707, "mergeFrom": [7844], "reason": "re-registration (member nr 081430): newer profile with login wins" },
+
+    {
+      "keep": 37981,
+      "mergeFrom": [4105],
+      "takeFromMerged": ["honorary"],
+      "reason": "user 173 linked to both; 2011 profile (010690-1, standard+honorary) and 2024 profile (010690, retiree) look like one person switching to retiree",
+      "review": true
+    },
+    {
+      "keep": 8351,
+      "mergeFrom": [8655],
+      "reason": "user 510 linked to both; personal profile (010235-1, education) and organisation-contact profile (010235) of the same person, both admin of organisation 8654",
+      "review": true
+    },
+    {
+      "keep": 5375,
+      "mergeFrom": [31851],
+      "takeFromMerged": ["tier"],
+      "reason": "member nr 110001: Duplicate Post clone made as company-membership profile when organisation 31850 was created; same person, tier from the company profile",
+      "review": true
+    }
+  ],
+  "unlinkUser": [
+    {
+      "member": 31740,
+      "reason": "Duplicate Post clone of member 8597 for a different person (member nr 081731) that kept 8597's login (user 231)"
+    }
+  ]
+}

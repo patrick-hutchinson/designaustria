@@ -11,11 +11,12 @@ migration/wordpress/
 ├── docs/
 │   ├── 01-analysis.md       how the WP database is structured
 │   └── 02-plan.md           WP → Payload mapping and decisions
-├── docker-compose.yml       throwaway MySQL 8.4 used only to read the dump
-├── lib/                     shared helpers (todo)
+├── config/merges.json       reviewed decisions for duplicate member profiles (plan §4)
+├── docker-compose.yml       throwaway MySQL 8.4 to read the dump + local Payload Postgres
+├── lib/                     parsers and mappers (PHP unserialize, ACF ids/repeaters, status split, merges, upsert) + unit tests
 └── scripts/
     ├── 00-load-dump.sh      load the SQL dump into MySQL
-    ├── analyze/             read-only SQL behind the numbers in 01-analysis.md
+    ├── analyze/             read-only SQL behind the numbers in 01-analysis.md, plus check-helpers.ts
     ├── extract/             MySQL → normalised JSON in .data/wp-extract/ (todo)
     └── import/              JSON → Payload via Local API, upsert by legacy WP id (todo)
 ```
@@ -54,6 +55,16 @@ export DATABASE_URL=postgres://payload:payload@127.0.0.1:5433/payload
 npm run payload -- migrate                       # apply src/migrations
 PAYLOAD_SECRET=local-test-secret npm run test:int  # incl. access-control tests (local DB only)
 ```
+
+Helpers:
+
+```sh
+npm run test:migration                                       # unit tests for lib/ (no database)
+npx tsx migration/wordpress/scripts/analyze/check-helpers.ts # run the parsers over the whole loaded dump
+```
+
+Run `check-helpers.ts` on every new dump: it fails on serialized data or relation fields the parsers can't read,
+and lists values the mappers don't know (e.g. a new country spelling), so they can be added before extracting.
 
 ## Rerunning safely
 

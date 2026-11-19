@@ -37,7 +37,7 @@ erDiagram
 | Collection | Purpose | From WP | Expected rows |
 |---|---|---|---|
 | `users` (auth) | Login only: email, password, roles | `wp_users` | ~1,830 |
-| `members` | A person's membership record and public profile | CPT `member` | ~2,930 after dedupe (fewer if §5 excludes contacts) |
+| `members` | A person's membership record and public profile | CPT `member` | ~2,930 after dedupe (all profiles, incl. newsletter-only) |
 | `organizations` | Company, studio or school | CPT `community` | ~150 |
 | `organization-members` | Link person ↔ organisation, with role `member`/`admin` | ACF `da_member_community(_admin)` | 302 |
 
@@ -50,9 +50,9 @@ WordPress already separates the login from the profile, and the data shows why t
 
 Merging both into one auth collection would force a login (an email plus a dummy password) onto every profile, and would mix
 admin-only membership data with the account. So:
-- `users` stays an auth collection: `email`, `roles`, `member` (relationship, unique, optional), `legacyWpId`, and
+- `users` stays an auth collection: `email`, `roles`, `member` (join field, read-only view of the linked profile), `legacyWpId`, and
   `legacyPasswordHash` (hidden, see §6).
-- `members` has an optional `user` relationship. A `join` field on `users` shows the linked profile.
+- `members` has an optional, **unique** `user` relationship. That's the only place the link is stored, so the two sides can't disagree.
 - One user ↔ at most one member. The 3 users linked to 2 profiles are resolved by the dedupe step (§4).
 
 ### 2.3 Roles and admin-panel access (Proposed)
@@ -69,8 +69,7 @@ A single `users` collection with `roles: ('admin' | 'staff' | 'member')[]`.
 | `legacyWpId` | number, unique, indexed, read-only | `wp_posts.ID` | upsert key |
 | `memberNumber` | text, indexed (**not unique**) | `id` | `000000*` → empty (placeholder); keep the `-N` suffix |
 | `user` | relationship → users | `user` | dangling ids and `0` → empty |
-| `state` | select | `post_status` + status flags | see §3.1 |
-| `publicProfile` | checkbox | `post_status = publish` | |
+| `profileStatus` | select `publish` / `pending` / `draft` / `private` | `post_status` | copied 1:1, see §3.1 |
 | `slug` | text | `post_name` | for redirects from old profile URLs |
 | `salutation` | select `d/f/m/i` | `gender` | |
 | `title`, `firstName`, `lastName` | text | `title`, `firstname`, `lastname` | |
@@ -81,26 +80,25 @@ A single `users` collection with `roles: ('admin' | 'staff' | 'member')[]`.
 | `companyName` | text | `identity` | "Berufsidentität/Firmenname" |
 | `jobTitle`, `employmentType` | text, select | `job`, `job_type` | |
 | `about`, `motto`, `education`, `additionalQualification`, `otherFocus` | textarea | `about`, `motto`, `education`, `addition`, `owncat` | plain text in WP too |
-| `hourlyRate` | number | `rate` | 2 rows; probably drop |
 | `keywords` | text | `keywords` | |
 | `categories` | relationship → categories (hasMany) | `da_category` | see §3.4 |
-| `avatarWpId` | number, hidden | `avatar` | WP attachment id; replaced by an upload field in §11 |
+| `legacy.avatarWpId` | number | `avatar` | WP attachment id; an upload field follows in §11 |
 | `addresses[]` | array: type, street, number, zip, city, country, visibility | `da_address` repeater | |
 | `phones[]` | array: type, number, visibility | `da_number` repeater | |
 | `links[]` | array: type, url | `da_online` repeater | |
 | `portfolio[]` | array: name, visibility, `imageWpIds` (json, hidden) | `da_portfolio` repeater | images follow in §11 |
 | `documents[]` | array: type, name, `fileWpId` (hidden) | `da_documents` repeater | file follows in §11 |
-| `studentProofWpId` | number, hidden | `cert` | file follows in §11 |
-| `billing` (group, **staff-only**) | paymentType, frequency, iban, feeOverride, feeNote | `payment_type`, `payment_frequency`, `iban`, `fee`, `fee_description` | |
+| `legacy.studentProofWpId` | number, staff-only | `cert` | file follows in §11 |
+| `billing` (group, **staff-only**) | paymentType, paymentFrequency, iban, feeOverride, feeNote | `payment_type`, `payment_frequency`, `iban`, `fee`, `fee_description` | frequency `year`→`yearly`, `trimester`→`quarterly` |
 | `organizations` | join → organization-members | — | read-only view |
-| `legacy` (group, hidden/collapsed) | createdAt, display opt-ins, motivation, mergedFromWpIds | `post_date`, `da_member_display`, `da_member_motivation` | kept for traceability, can be dropped later |
+| `legacy` (group, hidden/collapsed) | createdAt, display opt-ins, motivation, activeFlag, mergedFromWpIds | `post_date`, `da_member_display`, `da_member_motivation`, status `active` | kept for traceability, can be dropped later |
 
-Dropped: theme colour fields (`da_*_color`, `da_sidebar`), recaptcha, Yoast meta, `_validate_email`, `da_new_notified`, `da_member_cancel` (always 0).
+Dropped: `da_member_rate` (hourly rate, 2 rows), theme colour fields (`da_*_color`, `da_sidebar`), recaptcha, Yoast meta, `_validate_email`, `da_new_notified`, `da_member_cancel` (always 0).
 
 ### 2.5 `organizations` fields
 
-Same building blocks as members: `legacyWpId`, `memberNumber` (`da_community_id`), `name`, `slug`, `state`, `publicProfile`,
-`partnerStatus` (select hasMany: `partner`/`premium`/`education`; drop the legacy `active`), `about`, `logoWpId` (hidden), `addresses[]`, `phones[]`,
+Same building blocks as members: `legacyWpId`, `memberNumber` (`da_community_id`), `name`, `slug`, `profileStatus` (copied 1:1),
+`partnerStatus` (select hasMany: `partner`/`premium`/`education`; drop the legacy `active`), `about`, `legacy.logoWpId`, `addresses[]`, `phones[]`,
 `links[]`, `portfolio[]`, `documents[]`, `categories`, plus a `people` join → organization-members. Portfolio and documents follow the same pattern as on members (WP ids only).
 
 ### 2.6 `organization-members` fields
@@ -120,17 +118,18 @@ A separate collection, rather than a relationship array on either side, keeps a 
 
 ## 3. Transformation rules
 
-### 3.1 Member `state` (Decide; depends on question 1 in §8 of the analysis)
+### 3.1 Profile status: copied as-is
 
-| WP | Proposed `state` |
-|---|---|
-| `publish` | `active` |
-| `private` | `active` (not public) |
-| `pending` with a login | `inactive`, pending confirmation of what `pending` means |
-| `pending` without a login, status only `newsletter` (560) | **not migrated**, see §5, question 2 |
-| `pending` without a login, other statuses | `former` |
-| `draft` | `applicant` |
-| `deathyear` set | `deceased` (overrides the above) |
+What `pending` means in WordPress is unknown (it mixes applications, former members, inactive members and newsletter
+contacts). So nothing is interpreted during the migration:
+
+- `post_status` is copied 1:1 into `profileStatus` (`publish` / `pending` / `draft` / `private`) on members and organisations.
+  Only `publish` profiles are shown publicly, as in WordPress.
+- **All** profiles are migrated, including the 560 newsletter-only contacts (pending, no login, status only `newsletter`).
+- `deathYear` is migrated as a field; it doesn't change the status.
+
+Once designaustria explains what the statuses mean, a membership state can be derived inside Payload from `profileStatus`,
+the status flags and the login link, with no re-import needed.
 
 ### 3.2 Splitting `da_member_status` (Proposed)
 
@@ -146,8 +145,8 @@ The one multi-checkbox becomes separate fields:
 | `team` | `functions` includes `staff` |
 | `board` | `functions` includes `board`; `boardTerms` from `da_member_board` |
 | `bildrecht` | `bildrecht` = true |
-| `newsletter` | `newsletter` = true (or Mailchimp only, §5, question 2) |
-| `active` (legacy) | dropped; it only means "was active", which `state` already covers |
+| `newsletter` | `newsletter` = true |
+| `active` (legacy) | `legacy.activeFlag` = true (meaning unknown, kept so nothing is lost) |
 
 `tier` is single-valued. 6 profiles have two tier flags (for example `standard` + `community`). Rule: a `community` link wins
 (they're a corporate contact); otherwise keep the first and log it for review.
@@ -193,11 +192,11 @@ The extract step fails if a user would end up linked to two members after mergin
 
 These come from §8 of 01-analysis.md. They block only the parts noted.
 
-1. **What `pending` means** → `state` mapping (§3.1).
-2. **Newsletter-only contacts** (560): not migrating is proposed (data minimisation; they belong in the newsletter tool). Blocks: member extract filter.
-3. **Fee collection**: is there an external system (accounting tool or SEPA export) that reads IBAN and frequency? Decides whether `billing` should be authoritative in Payload or a sync target.
-4. **Community admin rights**: label only, or edit rights? Doesn't block the import (the role is migrated either way); it blocks access control.
-5. **Passwords**: see §6.
+1. **Newsletter-only contacts** (560): should they live in Payload at all, or only in the newsletter tool? Current decision:
+   migrate them as members with `newsletter = true` (§3.1). Doesn't block the build; they can be removed or moved later.
+2. **Fee collection**: is there an external system (accounting tool or SEPA export) that reads IBAN and frequency? Decides whether `billing` should be authoritative in Payload or a sync target.
+3. **Community admin rights**: label only, or edit rights? Doesn't block the import (the role is migrated either way); it blocks access control.
+4. **Passwords**: see §6.
 
 ---
 
@@ -232,8 +231,7 @@ verify/*.ts          WP counts ↔ Payload counts, report     (fails on mismatch
   New dev dependency: `mysql2`. PHP unserialise is a small in-house parser in `lib/` (plus tests), since the values are simple.
 - **Extract** is pure: same dump → byte-identical JSON (sorted keys and rows). Every record carries `legacyWpId`. Warnings
   (dangling refs, unmapped values, merges) go to `.data/wp-extract/_report.json`.
-- **Import order:** `categories` → `users` → `organizations` → `members` → `organization-members`
-  → post-pass setting `users.member`.
+- **Import order:** `categories` → `users` → `organizations` → `members` → `organization-members`.
 - **Upsert:** `find({ where: { legacyWpId: { equals } } })`, then `update` or `create`. Batched, with `--dry-run` and `--only=<collection>`.
   A rerun never duplicates; it updates changed values.
 - **Records removed in WordPress** between runs aren't deleted automatically; `verify` lists them.
@@ -268,8 +266,8 @@ migration/wordpress/
 ## 9. Verification
 
 `verify/counts.ts` checks, and fails on any mismatch:
-- users: WP count − excluded = Payload count; every WP admin has role `admin`
-- members: WP count − excluded − merged = Payload count; every merged id appears in some `mergedFromWpIds`
+- users: WP count = Payload count; every WP admin has role `admin`
+- members: WP count − merged = Payload count; every merged id appears in some `mergedFromWpIds`
 - every member→user link from WP exists in Payload (except the logged dangling ones)
 - organisation links: 302 rows (distinct member ∪ admin pairs), 132 with role `admin`
 - spot checks: 20 random members, rendered side by side (WP JSON vs Payload doc) in a report
@@ -285,14 +283,14 @@ migration/wordpress/
 4. Legacy login endpoint (§6).
 5. Staging rehearsal with the real dump, then cutover.
 
-Steps 1–3 can start now. Only the `state` mapping (question 1) and the newsletter filter (question 2) are provisional until those answers come in.
+Steps 1–3 can start now; none of the open decisions in §5 block them.
 
 ---
 
 ## 11. Later: media files (not part of this migration yet)
 
 The people and organisations migration runs **without files**. Profiles are imported with the WordPress attachment ids
-(`avatarWpId`, `logoWpId`, `studentProofWpId`, `portfolio[].imageWpIds`, `documents[].fileWpId`), so a separate media step can
+(`legacy.avatarWpId`, `legacy.logoWpId`, `legacy.studentProofWpId`, `portfolio[].imageWpIds`, `documents[].fileWpId`), so a separate media step can
 attach the files afterwards without re-extracting or touching the rest of the data.
 
 **This step still has to be done**, and it must be finished before go-live if the new site shows member or organisation profiles.

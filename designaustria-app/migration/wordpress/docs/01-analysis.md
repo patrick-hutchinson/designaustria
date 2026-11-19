@@ -272,8 +272,9 @@ The dump also contains some irrelevant tables and post types: Yoast, Admin Colum
 
 ## 8. Open questions (for designaustria)
 
-1. What does `pending` mean on a member profile: an application, a former member, or "inactive"? Should former members be migrated?
-2. Should newsletter-only contacts (≈650) become users/members in Payload, or go to the newsletter tool (Mailchimp) only?
+1. What does `pending` mean on a member profile: an application, a former member, or "inactive"? (Doesn't block the migration: the status is copied as-is.)
+2. Should newsletter-only contacts (≈560) become members in Payload, or go to the newsletter tool (Mailchimp) only?
+   (For now they're migrated as members with `newsletter = true`.)
 3. Is `_sale_price` the member price? If so, how is it applied (logged-in `member` role, or a specific status)?
 4. Which statuses pay which fee, and is the fee collection (SEPA, `payment_frequency`) handled in another system
    (an accounting tool) that the new site has to sync with?

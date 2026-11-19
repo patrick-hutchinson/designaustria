@@ -22,5 +22,25 @@ services:
       timeout: 5s
       retries: 60
 
+  # Local Payload database to develop the schema and the import against.
+  # Use: DATABASE_URL=postgres://payload:payload@127.0.0.1:5433/payload
+  payload-db:
+    image: postgres:17
+    container_name: designaustria-payload-db
+    environment:
+      POSTGRES_USER: payload
+      POSTGRES_PASSWORD: payload
+      POSTGRES_DB: payload
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - payload-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'payload']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
 volumes:
   wp-mysql-data:
+  payload-db-data:

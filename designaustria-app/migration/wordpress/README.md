@@ -45,6 +45,16 @@ docker compose -f migration/wordpress/docker-compose.yml down -v
 
 MySQL listens on `127.0.0.1:3307` (user `root`, password `wp`) so it doesn't clash with a local MySQL.
 
+The same compose file has a local Payload Postgres (`payload-db`, `127.0.0.1:5433`) to develop the schema and the import
+against, so nothing touches the shared Neon database:
+
+```sh
+docker compose -f migration/wordpress/docker-compose.yml up -d --wait payload-db
+export DATABASE_URL=postgres://payload:payload@127.0.0.1:5433/payload
+npm run payload -- migrate                       # apply src/migrations
+PAYLOAD_SECRET=local-test-secret npm run test:int  # incl. access-control tests (local DB only)
+```
+
 ## Rerunning safely
 
 - **Load** recreates the database from scratch on every run.

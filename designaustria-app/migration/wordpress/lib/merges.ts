@@ -30,9 +30,11 @@ export interface MergeConfig {
 export interface MergeableRecord {
   legacyWpId: number
   user?: number | null
-  legacy?: { mergedFromWpIds?: number[] | null } & Record<string, unknown>
-  [field: string]: unknown
+  legacy?: { mergedFromWpIds?: number[] | null }
 }
+
+/** Field access by name (rules name fields as strings). */
+const fields = (record: object) => record as Record<string, unknown>
 
 const isPositiveInt = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0
 
@@ -90,11 +92,11 @@ export function applyMerges<T extends MergeableRecord>(records: T[], config: Mer
     const keep = mustGet(rule.keep, `merge keep=${rule.keep}`)
     const merged = rule.mergeFrom.map((id) => mustGet(id, `merge keep=${rule.keep}`))
     for (const field of rule.takeFromMerged ?? []) {
-      const source = merged.find((record) => !isEmpty(record[field]))
-      if (source) (keep as MergeableRecord)[field] = source[field]
+      const source = merged.find((record) => !isEmpty(fields(record)[field]))
+      if (source) fields(keep)[field] = fields(source)[field]
     }
     const previous = keep.legacy?.mergedFromWpIds ?? []
-    keep.legacy = { ...keep.legacy, mergedFromWpIds: [...new Set([...previous, ...rule.mergeFrom])] }
+    keep.legacy = { ...keep.legacy, mergedFromWpIds: [...new Set([...previous, ...rule.mergeFrom])] } as T['legacy']
     rule.mergeFrom.forEach((id) => byId.delete(id))
     if (rule.review) warnings.push(`merge ${rule.mergeFrom.join(',')} → ${rule.keep} is provisional: ${rule.reason}`)
   }

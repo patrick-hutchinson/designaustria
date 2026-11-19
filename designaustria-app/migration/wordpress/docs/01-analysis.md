@@ -7,8 +7,8 @@ All numbers below are reproducible with `scripts/analyze/run.sh`. Raw output is 
 > placeholders such as `user_<id>@example.com`, `TestVorname_<id>` and `AT99TESTIBAN…`. Placeholder IDs differ between
 > tables, so emails can't be compared across tables (for example user ↔ member, or guest orders ↔ users).
 > Every user's password hash is one of two dummy values. Relationships stored as IDs are intact.
-> **Not anonymised:** attachment file names (`_wp_attached_file`, attachment titles). Some certificate PDFs carry the
-> person's real name in the file name, so handle the dump as personal data.
+> **Not anonymised:** attachment file names (`_wp_attached_file`, attachment titles) and post slugs (`post_name`,
+> `_wp_old_slug`). Some certificate PDFs and many member slugs carry the person's real name, so handle the dump as personal data.
 
 ---
 
@@ -178,7 +178,7 @@ This is the "business/group with users linked to it". It's confirmed, and it wor
 | | Count |
 |---|---|
 | Community posts | 152 (102 publish, 46 pending, 3 draft, 1 auto-draft) |
-| Membership links | 301 (299 people → 143 communities) |
+| Membership links | 298 (296 people → 143 communities) |
 | Admin links | 132 (131 people → 106 communities) |
 | Admins that are not also a member of the same community | 1 |
 | Admin links where the admin has a WP login | 121 of 132 |
@@ -188,7 +188,7 @@ This is the "business/group with users linked to it". It's confirmed, and it wor
 | People admin of more than one community | 1 |
 | Members with status `community` but no community link | 23 |
 
-**Group size** (distinct people per community): 71 have 1, 40 have 2, 15 have 3, 10 have 4, 4 have 5, 1 has 6.
+**Group size** (distinct people per community): 71 have 1, 40 have 2, 16 have 3, 11 have 4, 2 have 5, 1 has 6.
 Two outliers: *designaustria* itself (21 people, 3 admins, status pending, which is effectively the staff team) and a school,
 the *Höhere Graphische Bundes-Lehr- und Versuchsanstalt* (19 people, 3 admins).
 

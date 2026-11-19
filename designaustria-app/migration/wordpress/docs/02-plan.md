@@ -39,7 +39,7 @@ erDiagram
 | `users` (auth) | Login only: email, password, roles | `wp_users` | ~1,830 |
 | `members` | A person's membership record and public profile | CPT `member` | ~2,930 after dedupe (all profiles, incl. newsletter-only) |
 | `organizations` | Company, studio or school | CPT `community` | ~150 |
-| `organization-members` | Link person ↔ organisation, with role `member`/`admin` | ACF `da_member_community(_admin)` | 302 |
+| `organization-members` | Link person ↔ organisation, with role `member`/`admin` | ACF `da_member_community(_admin)` | 299 (297 after merges) |
 
 ### 2.2 Why keep `users` and `members` separate (Proposed)
 
@@ -222,6 +222,9 @@ the anonymised dump) and WordPress ≥ 6.8 bcrypt (`$wp$2y$…`).
 3. "Forgot password" works as normal for everyone.
 4. After N months, clear any remaining legacy hashes; those users use "forgot password".
 
+The import writes the WordPress hash on every run, so WordPress stays the source of truth until cutover. Once the login
+endpoint exists, the import must not put a hash back on a user who has already logged in on the new site (step 4).
+
 Alternative: drop the hashes and send everyone a "set your password" mail at launch. It's simpler, but every member has to act
 at launch, and outdated email addresses lead to support requests.
 
@@ -236,7 +239,8 @@ import/*.ts          JSON  → Payload Local API               (upsert by legacy
 verify/*.ts          WP counts ↔ Payload counts, report     (fails on mismatch)
 ```
 
-- **Language:** TypeScript, run with `payload run <script>` so the Payload config and `.env` load just as they do in the app.
+- **Language:** TypeScript, run with `tsx` (`npm run wp:extract|wp:import|wp:verify`). `payload run` drops command-line flags,
+  so the scripts load `.env` and the Payload config themselves (`scripts/lib-env.ts`).
   New dev dependency: `mysql2`. PHP unserialise is a small in-house parser in `lib/` (plus tests), since the values are simple.
 - **Extract** is pure: same dump → byte-identical JSON (sorted keys and rows). Every record carries `legacyWpId`. Warnings
   (dangling refs, unmapped values, merges) go to `.data/wp-extract/_report.json`.
@@ -254,9 +258,10 @@ verify/*.ts          WP counts ↔ Payload counts, report     (fails on mismatch
 migration/wordpress/
 ├── config/merges.json            reviewed duplicate merges
 ├── lib/                          mysql client, php-unserialize, parseIdList, upsert, mappers
-├── scripts/extract/              one script per collection, numbered in import order
-├── scripts/import/               idem
-└── scripts/verify/counts.ts
+├── scripts/lib-env.ts            Payload startup: local-DB guard, no schema push, migrations up-to-date check
+├── scripts/extract/              run.ts + one module per collection
+├── scripts/import/run.ts         all collections in dependency order, --dry-run / --only=
+└── scripts/verify/run.ts
 ```
 
 ---
@@ -278,7 +283,7 @@ migration/wordpress/
 - users: WP count = Payload count; every WP admin has role `admin`
 - members: WP count − merged = Payload count; every merged id appears in some `mergedFromWpIds`
 - every member→user link from WP exists in Payload (except the logged dangling ones)
-- organisation links: 302 rows (distinct member ∪ admin pairs), 132 with role `admin`
+- organisation links: equal to `organization-members.json` (297 rows on the anonymised dump, 130 with role `admin`, after merges)
 - spot checks: 20 random members, rendered side by side (WP JSON vs Payload doc) in a report
 
 ---

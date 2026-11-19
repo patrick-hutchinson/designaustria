@@ -12,6 +12,10 @@ export interface UpsertArgs {
   keyField?: string
   key: number | string
   data: Record<string, unknown>
+  /** Only written when the document is created (e.g. an initial random password). */
+  createOnly?: Record<string, unknown>
+  /** Locale for localized fields in `data` (Payload's default locale if omitted). */
+  locale?: 'de' | 'en'
   dryRun?: boolean
 }
 
@@ -24,10 +28,12 @@ export async function upsertByLegacyKey({
   keyField = 'legacyWpId',
   key,
   data,
+  createOnly = {},
+  locale,
   dryRun = false,
 }: UpsertArgs): Promise<{ action: UpsertAction; id: number | string | null }> {
   const where: Where = { [keyField]: { equals: key } }
-  const existing = await payload.find({ collection, where, limit: 2, depth: 0, pagination: false, select: {} })
+  const existing = await payload.find({ collection, where, limit: 2, depth: 0, pagination: false, select: { [keyField]: true } })
   if (existing.docs.length > 1) throw new Error(`${collection}: more than one document with ${keyField}=${key}`)
 
   const found = existing.docs[0]
@@ -36,13 +42,14 @@ export async function upsertByLegacyKey({
   if (dryRun) return { action: found ? 'would-update' : 'would-create', id: found?.id ?? null }
 
   if (found) {
-    await payload.update({ collection, id: found.id, data: body, depth: 0, context: MIGRATION_CONTEXT })
+    await payload.update({ collection, id: found.id, data: body, depth: 0, locale, context: MIGRATION_CONTEXT })
     return { action: 'updated', id: found.id }
   }
   const created = await payload.create({
     collection,
-    data: body,
+    data: { ...createOnly, ...(body as object) } as never,
     depth: 0,
+    locale,
     context: MIGRATION_CONTEXT,
     // Imported logins must not receive a verification or welcome mail.
     ...(collection === 'users' ? { disableVerificationEmail: true } : {}),

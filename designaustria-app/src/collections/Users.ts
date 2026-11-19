@@ -32,8 +32,9 @@ export const Users: CollectionConfig = {
   hooks: {
     beforeChange: [
       // The very first account (create-first-user screen) becomes admin.
-      async ({ data, operation, req }) => {
-        if (operation !== 'create') return data
+      // Not for the WordPress import, which sets roles itself (and may start on an empty database).
+      async ({ context, data, operation, req }) => {
+        if (operation !== 'create' || context?.isMigration) return data
         const { totalDocs } = await req.payload.count({ collection: 'users', req })
         if (totalDocs === 0) data.roles = ['admin']
         return data

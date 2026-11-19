@@ -17,8 +17,9 @@ migration/wordpress/
 └── scripts/
     ├── 00-load-dump.sh      load the SQL dump into MySQL
     ├── analyze/             read-only SQL behind the numbers in 01-analysis.md, plus check-helpers.ts
-    ├── extract/             MySQL → normalised JSON in .data/wp-extract/ (todo)
-    └── import/              JSON → Payload via Local API, upsert by legacy WP id (todo)
+    ├── extract/             MySQL → cleaned, deduplicated JSON in .data/wp-extract/
+    ├── import/              JSON → Payload via Local API, upsert by legacy WP id
+    └── verify/              compares Payload with the extract, fails on any mismatch
 ```
 
 Data stays in `.data/` (gitignored): the raw dump, analysis output and extracted JSON.
@@ -66,10 +67,30 @@ npx tsx migration/wordpress/scripts/analyze/check-helpers.ts # run the parsers o
 Run `check-helpers.ts` on every new dump: it fails on serialized data or relation fields the parsers can't read,
 and lists values the mappers don't know (e.g. a new country spelling), so they can be added before extracting.
 
+### Migrating people and organisations
+
+```sh
+# with the dump loaded (step 1) and payload-db running + migrated (see above)
+export DATABASE_URL=postgres://payload:payload@127.0.0.1:5433/payload
+
+npm run wp:extract                    # dump → .data/wp-extract/*.json + _report.json (warnings)
+npm run wp:import -- --dry-run        # what would be created/updated
+npm run wp:import                     # write; --only=users,members to limit
+npm run wp:verify                     # fails on any mismatch with the extract
+```
+
+- The import **refuses non-local databases** unless `--allow-remote` is passed (`.env.local` points at Neon).
+- It stops if the database hasn't run all of `src/migrations`, and never pushes the schema itself.
+- Reports with details (may contain personal values) go to `.data/wp-extract/_report.json` and `.data/wp-import/_report.json`.
+- On the anonymised dump: 118 categories, 1,832 users, 151 organisations, 2,928 members (12 duplicates merged),
+  297 organisation links (130 admins). The first import takes about a minute, mostly password hashing.
+
 ## Rerunning safely
 
 - **Load** recreates the database from scratch on every run.
 - **Analyze** only reads `wordpress`; derived tables go in `wp_analysis`, which is dropped and rebuilt on every run.
-- **Extract** (todo) will overwrite its JSON output deterministically.
-- **Import** (todo): every migrated Payload document stores its WordPress ID in a unique `legacyWpId` field and is upserted by it.
-  Relationships are resolved through `legacyWpId`, so rerunning updates records instead of duplicating them.
+- **Extract** overwrites its JSON output deterministically: the same dump gives byte-identical files.
+- **Import**: every migrated Payload document stores its WordPress ID in a unique `legacyWpId` field (`legacyKey` for
+  organisation links) and is upserted by it. Relationships are resolved through those keys, so rerunning updates records
+  instead of duplicating them (tested: a second run updates all records, row counts unchanged).
+- **Verify** only reads.

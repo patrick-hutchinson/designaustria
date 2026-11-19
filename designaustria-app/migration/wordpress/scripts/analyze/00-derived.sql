@@ -12,6 +12,8 @@ SELECT m.post_id AS member_id,
        c.ID      AS community_id,
        CAST(IF(m.meta_key = 'da_member_community_admin', 'admin', 'member') AS CHAR(10)) COLLATE utf8mb4_unicode_ci AS kind
 FROM wordpress.wp_postmeta m
+-- only real member posts: revisions also carry ACF meta and would be counted otherwise
+JOIN wordpress.wp_posts mp ON mp.ID = m.post_id AND mp.post_type = 'member'
 JOIN wordpress.wp_posts c
   ON c.post_type = 'community'
  AND (m.meta_value = CAST(c.ID AS CHAR) COLLATE utf8mb4_unicode_ci

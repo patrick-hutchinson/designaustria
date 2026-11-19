@@ -17,7 +17,10 @@
     "test": "pnpm run test:int && pnpm run test:e2e",
     "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import=tsx/esm\" playwright test --config=playwright.config.ts",
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts",
-    "test:migration": "vitest run --config ./migration/wordpress/vitest.config.mts"
+    "test:migration": "vitest run --config ./migration/wordpress/vitest.config.mts",
+    "wp:extract": "tsx migration/wordpress/scripts/extract/run.ts",
+    "wp:import": "tsx migration/wordpress/scripts/import/run.ts",
+    "wp:verify": "tsx migration/wordpress/scripts/verify/run.ts"
   },
   "dependencies": {
     "@payloadcms/db-postgres": "3.94.0",

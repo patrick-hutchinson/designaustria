@@ -20,6 +20,12 @@ export class Report {
     return result.value
   }
 
+  /** Removes the warnings about records that end up not being migrated, so the report only lists what matters. */
+  forget(refs: Set<string>): void {
+    const keep = this.entries.filter((entry) => !refs.has(entry.ref))
+    this.entries.splice(0, this.entries.length, ...keep)
+  }
+
   counts(): Record<string, number> {
     const counts: Record<string, number> = {}
     for (const { code } of this.entries) counts[code] = (counts[code] ?? 0) + 1

@@ -18,6 +18,7 @@ import {
   wpPostDate,
 } from '../../lib/mappers'
 import { applyMerges, type MergeConfig } from '../../lib/merges'
+import { keepPublishedMembers } from '../../lib/published'
 import type { PostWithMeta } from '../../lib/mysql'
 import type { Report } from '../../lib/report'
 import { splitMemberStatus } from '../../lib/status'
@@ -35,7 +36,12 @@ export function extractMembers(
   posts: PostWithMeta[],
   { organizationIds, userIds, merges }: { organizationIds: Set<number>; userIds: Set<number>; merges: MergeConfig },
   report: Report,
-): { members: ExtractedMember[]; organizationMembers: ExtractedOrganizationMember[]; mergeWarnings: string[] } {
+): {
+  members: ExtractedMember[]
+  organizationMembers: ExtractedOrganizationMember[]
+  mergeWarnings: string[]
+  notMigrated: ExtractedMember[]
+} {
   // 1. Organisation links, read before the members because the tier rule depends on them.
   const rawLinks: RawLink[] = []
   for (const { post, meta } of posts) {
@@ -43,7 +49,7 @@ export function extractMembers(
     const adminOf = parseIdList(meta.da_member_community_admin)
     for (const organization of new Set([...memberOf, ...adminOf])) {
       if (!organizationIds.has(organization)) {
-        report.warn('link.missing-organization', `member ${post.ID}`, `linked to organisation ${organization}, which isn't migrated; link dropped`)
+        report.warn('link.missing-organization', `member ${post.ID}`, `linked to organisation ${organization}, which isn't migrated (not published); link dropped`)
         continue
       }
       rawLinks.push({ member: post.ID, organization, admin: adminOf.includes(organization) })
@@ -133,17 +139,22 @@ export function extractMembers(
     })
   }
 
-  // 3. Duplicates (config/merges.json)
+  // 3. Duplicates (config/merges.json). Before the status filter, so a published profile still gets the
+  //    login and tier from its pending duplicate.
   const merged = applyMerges(members, merges)
-  const keptIds = new Set(merged.records.map((member) => member.legacyWpId))
   const mergedInto = new Map<number, number>()
   for (const member of merged.records) member.legacy.mergedFromWpIds.forEach((id) => mergedInto.set(id, member.legacyWpId))
 
-  // 4. Links on merged-away profiles move to the kept profile; admin wins when a pair occurs twice.
+  // 4. Only published profiles are migrated (plan §3.1).
+  const statusById = new Map(members.map((member) => [member.legacyWpId, member.profileStatus]))
+  const { kept, dropped } = keepPublishedMembers(merged.records, statusById)
+  const keptIds = new Set(kept.map((member) => member.legacyWpId))
+
+  // 5. Links on merged-away profiles move to the kept profile; admin wins when a pair occurs twice.
   const pairs = new Map<string, ExtractedOrganizationMember>()
   for (const link of rawLinks) {
     const member = mergedInto.get(link.member) ?? link.member
-    if (!keptIds.has(member)) continue // profile not migrated (status)
+    if (!keptIds.has(member)) continue // profile not migrated (not published)
     const legacyKey = `${member}:${link.organization}`
     const existing = pairs.get(legacyKey)
     pairs.set(legacyKey, {
@@ -156,8 +167,9 @@ export function extractMembers(
   const organizationMembers = [...pairs.values()].sort((a, b) => a.member - b.member || a.organization - b.organization)
 
   return {
-    members: merged.records.sort((a, b) => a.legacyWpId - b.legacyWpId),
+    members: kept.sort((a, b) => a.legacyWpId - b.legacyWpId),
     organizationMembers,
     mergeWarnings: merged.warnings,
+    notMigrated: dropped,
   }
 }

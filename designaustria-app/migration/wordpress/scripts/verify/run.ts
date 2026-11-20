@@ -25,7 +25,6 @@ const EXTRACT_DIR = path.resolve(HERE, '../../../../.data/wp-extract')
 const readExtract = <T>(file: string): T[] => JSON.parse(readFileSync(path.join(EXTRACT_DIR, file), 'utf8'))
 
 const errors: string[] = []
-const notes: string[] = []
 const check = (ok: boolean, message: string) => {
   console.log(`${ok ? '✓' : '✗'} ${message}`)
   if (!ok) errors.push(message)
@@ -38,14 +37,14 @@ async function all(payload: Payload, collection: CollectionSlug): Promise<Doc[]>
   return docs as unknown as Doc[]
 }
 
-/** Compares the set of legacy keys; extra docs in Payload are listed (records removed in WordPress), not failed. */
+/** Compares the set of legacy keys. Extra docs fail too: a full import wipes first, so leftovers are records that must not be kept (plan §3.1). */
 function compareKeys(name: string, expected: (number | string)[], docs: Doc[], keyField = 'legacyWpId') {
   const actual = new Set(docs.map((doc) => doc[keyField]).filter((key) => key !== null && key !== undefined))
   const missing = expected.filter((key) => !actual.has(key))
   const expectedSet = new Set(expected)
   const extra = [...actual].filter((key) => !expectedSet.has(key as number | string))
   check(missing.length === 0, `${name}: all ${expected.length} extracted records exist in Payload${missing.length ? ` (missing: ${missing.slice(0, 10).join(', ')}…)` : ''}`)
-  if (extra.length) notes.push(`${name}: ${extra.length} documents not in this extract (removed in WordPress?): ${extra.slice(0, 10).join(', ')}`)
+  check(extra.length === 0, `${name}: no documents that aren't in this extract${extra.length ? ` (${extra.length}, e.g. ${extra.slice(0, 10).join(', ')}; run a full import, which wipes first)` : ''}`)
 }
 
 async function main() {
@@ -148,7 +147,6 @@ async function main() {
   }
   check(fieldErrors === 0, `${sample.length} sampled members match field by field`)
 
-  notes.forEach((note) => console.log(`ℹ ${note}`))
   console.log(errors.length ? `\n${errors.length} check(s) failed` : '\nAll checks passed')
   process.exit(errors.length ? 1 : 0)
 }

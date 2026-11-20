@@ -36,10 +36,10 @@ erDiagram
 
 | Collection | Purpose | From WP | Expected rows |
 |---|---|---|---|
-| `users` (auth) | Login only: email, password, roles | `wp_users` | ~1,830 |
-| `members` | A person's membership record and public profile | CPT `member` | ~2,930 after dedupe (all profiles, incl. newsletter-only) |
-| `organizations` | Company, studio or school | CPT `community` | ~150 |
-| `organization-members` | Link person ↔ organisation, with role `member`/`admin` | ACF `da_member_community(_admin)` | 299 (297 after merges) |
+| `users` (auth) | Login only: email, password, roles | `wp_users` | ~1,215 (logins of non-migrated profiles dropped, §3.1) |
+| `members` | A person's membership record and public profile | CPT `member` | ~1,290 (published profiles only, after dedupe) |
+| `organizations` | Company, studio or school | CPT `community` | ~100 (published only) |
+| `organization-members` | Link person ↔ organisation, with role `member`/`admin` | ACF `da_member_community(_admin)` | 181 (108 admins) |
 
 ### 2.2 Why keep `users` and `members` separate (Proposed)
 
@@ -69,7 +69,7 @@ A single `users` collection with `roles: ('admin' | 'staff' | 'member')[]`.
 | `legacyWpId` | number, unique, indexed, read-only | `wp_posts.ID` | upsert key |
 | `memberNumber` | text, indexed (**not unique**) | `id` | `000000*` → empty (placeholder); keep the `-N` suffix |
 | `user` | relationship → users | `user` | dangling ids and `0` → empty |
-| `profileStatus` | select `publish` / `pending` / `draft` / `private` | `post_status` | copied 1:1, see §3.1 |
+| `profileStatus` | select `publish` / `pending` / `draft` / `private` | `post_status` | always `publish` after import (§3.1); staff can unpublish later |
 | `slug` | text | `post_name` | for redirects from old profile URLs |
 | `salutation` | select `d/f/m/i` | `gender` | |
 | `title`, `firstName`, `lastName` | text | `title`, `firstname`, `lastname` | |
@@ -97,7 +97,7 @@ Dropped: `da_member_rate` (hourly rate, 2 rows), theme colour fields (`da_*_colo
 
 ### 2.5 `organizations` fields
 
-Same building blocks as members: `legacyWpId`, `memberNumber` (`da_community_id`), `name`, `slug`, `profileStatus` (copied 1:1),
+Same building blocks as members: `legacyWpId`, `memberNumber` (`da_community_id`), `name`, `slug`, `profileStatus` (always `publish` after import),
 `partnerStatus` (select hasMany: `partner`/`premium`/`education`; drop the legacy `active`), `about`, `legacy.logoWpId`, `addresses[]`, `phones[]`,
 `links[]`, `portfolio[]`, `documents[]`, `categories`, plus a `people` join → organization-members. Portfolio and documents follow the same pattern as on members (WP ids only).
 
@@ -118,18 +118,27 @@ A separate collection, rather than a relationship array on either side, keeps a 
 
 ## 3. Transformation rules
 
-### 3.1 Profile status: copied as-is
+### 3.1 Profile status: only published profiles are migrated
 
-What `pending` means in WordPress is unknown (it mixes applications, former members, inactive members and newsletter
-contacts). So nothing is interpreted during the migration:
+designaustria confirmed (November 2026): `pending` profiles are former members whose profile was deactivated when they
+left. Keeping them is a data protection problem, so they are **not migrated**. The rule is: everything visible on the
+current site is migrated (those are the paying members), nothing else.
 
-- `post_status` is copied 1:1 into `profileStatus` (`publish` / `pending` / `draft` / `private`) on members and organisations.
-  Only `publish` profiles are shown publicly, as in WordPress.
-- **All** profiles are migrated, including the 560 newsletter-only contacts (pending, no login, status only `newsletter`).
+- **Members:** only `publish`. `pending` (1,627), `draft` (11) and `private` (6) profiles are left out. That includes the
+  newsletter-only contacts: 647 of the 651 profiles with `newsletter` are pending. The 4 published ones are migrated.
+- **Organisations:** only `publish` (102 of 152). 12 published organisations end up without an admin, either because
+  there never was one (designforum Wien, heiderklausner, CIDCOM, Extraplan, Atomic) or because their admin is pending
+  (Print Alliance, FH Vorarlberg, WIFI Wien, BLAHA, Edera Safety, rolf.produktions, Yuniti). They are migrated without one.
+- **Links:** a link is migrated only if both the person and the organisation are. People who are pending inside a
+  published organisation (25 people, 18 organisations) drop out of its people list.
+- **Logins:** a login linked only to profiles that aren't migrated is dropped too (617). Admins and logins without any
+  profile (staff, some shop customers) are kept.
+- **Merges run first** (§4), then the filter. So a published profile still gets the login and tier from its pending
+  duplicate. The extract fails if a merge rule would fold a published profile into one that isn't migrated.
 - `deathYear` is migrated as a field; it doesn't change the status.
 
-Once designaustria explains what the statuses mean, a membership state can be derived inside Payload from `profileStatus`,
-the status flags and the login link, with no re-import needed.
+Code: `lib/published.ts`. The extract prints what was left out (`notMigrated` in `_report.json`), and warnings about
+records that aren't migrated are left out of the report.
 
 ### 3.2 Splitting `da_member_status` (Proposed)
 
@@ -175,7 +184,9 @@ reuse it in their own migration later. Terms that no longer exist (e.g. id 174) 
 
 ## 4. Duplicate handling
 
-The rules come from the duplicate analysis in §3 of 01-analysis.md. They're applied in the extract stage, so the JSON that import reads is already deduplicated.
+The rules come from the duplicate analysis in §3 of 01-analysis.md. They're applied in the extract stage, before the
+status filter (§3.1), so the JSON that import reads is already deduplicated. Where both profiles are pending (bulk copies
+3669 and 5086), the merged result is left out like any other pending profile.
 
 | Pattern | Rule |
 |---|---|
@@ -201,13 +212,18 @@ The extract fails if a rule points to a profile that doesn't exist, or if a logi
 
 These come from §8 of 01-analysis.md. They block only the parts noted.
 
-1. **Newsletter-only contacts** (560): should they live in Payload at all, or only in the newsletter tool? Current decision:
-   migrate them as members with `newsletter = true` (§3.1). Doesn't block the build; they can be removed or moved later.
-2. **Fee collection**: is there an external system (accounting tool or SEPA export) that reads IBAN and frequency? Decides whether `billing` should be authoritative in Payload or a sync target.
-3. **Community admin rights**: label only, or edit rights? Doesn't block the import (the role is migrated either way); it blocks access control.
-4. **Passwords**: transparent upgrade on first login, or a "set your password" mail to everyone at launch (§6)? Current
+1. **Fee collection**: is there an external system (accounting tool or SEPA export) that reads IBAN and frequency? Decides whether `billing` should be authoritative in Payload or a sync target.
+2. **Community admin rights**: label only, or edit rights? Doesn't block the import (the role is migrated either way); it blocks access control.
+3. **Passwords**: transparent upgrade on first login, or a "set your password" mail to everyone at launch (§6)? Current
    decision: transparent upgrade, built in step 4. Still open: how many months to keep the WordPress hashes (§6 point 4),
    and whether to mail members anyway at launch.
+4. **Newsletter list**: the 647 newsletter contacts aren't migrated (§3.1). Is the list kept in the newsletter tool
+   (Mailchimp)? Otherwise the addresses are gone after cutover.
+5. **Edge cases of the "published only" rule** (§3.1):
+   - The *designaustria* organisation (the staff team, 3 published admins) is pending, so it isn't migrated. Intended?
+   - 3 published profiles have only the status `newsletter` (WP 3498, 4269, 4489). They're migrated as visible members. Wrongly flagged?
+   - Logins without any profile (43 with the `member` role, 12 of them with shop orders) are still migrated. Keep them,
+     or are they also former members?
 
 ---
 
@@ -248,7 +264,7 @@ at launch, and outdated email addresses lead to support requests.
 ```
 00-load-dump.sh      SQL dump → MySQL (container)
 extract/*.ts         MySQL → .data/wp-extract/*.json        (clean, deduplicated, Payload-shaped, no Payload IDs)
-import/*.ts          JSON  → Payload Local API               (upsert by legacyWpId, resolve relations by legacyWpId)
+import/*.ts          JSON  → Payload Local API               (wipe, then create; relations resolved by legacyWpId)
 verify/*.ts          WP counts ↔ Payload counts, report     (fails on mismatch)
 ```
 
@@ -258,9 +274,13 @@ verify/*.ts          WP counts ↔ Payload counts, report     (fails on mismatch
 - **Extract** is pure: same dump → byte-identical JSON (sorted keys and rows). Every record carries `legacyWpId`. Warnings
   (dangling refs, unmapped values, merges) go to `.data/wp-extract/_report.json`.
 - **Import order:** `categories` → `users` → `organizations` → `members` → `organization-members`.
-- **Upsert:** `find({ where: { legacyWpId: { equals } } })`, then `update` or `create`. Batched, with `--dry-run` and `--only=<collection>`.
-  A rerun never duplicates; it updates changed values.
-- **Records removed in WordPress** between runs aren't deleted automatically; `verify` lists them.
+- **Wipe first:** a full import deletes everything a previous import wrote (users, members, organisations, links,
+  categories) in one transaction, then imports the extract (`scripts/import/wipe.ts`). So every run gives exactly the
+  extract: records removed in WordPress or no longer migrated (§3.1) don't linger. **Kept:** accounts made on the new site
+  for the team (no `legacyWpId`, role `admin` or `staff`). `verify` fails if anything outside the extract is left.
+  Payload ids change on every run, so nothing outside the import may point to these records by id until go-live.
+- **Upsert:** records are still written with `find({ where: { legacyWpId: { equals } } })`, then `update` or `create`.
+  With `--only=<collection>` nothing is wiped and only the upsert runs (for fixing one collection). Also `--dry-run`.
 - **Media:** not imported in this migration. Extract and import only carry the WP attachment ids (`*WpId` fields), see §11.
 - **Side effects off:** imports pass `context: { isMigration: true }`, and hooks that send emails or ping external services must
   skip when that flag is set. Payload's verification and welcome emails are disabled for imported users.
@@ -273,7 +293,8 @@ migration/wordpress/
 ├── lib/                          mysql client, php-unserialize, parseIdList, upsert, mappers
 ├── scripts/lib-env.ts            Payload startup: local-DB guard, no schema push, migrations up-to-date check
 ├── scripts/extract/              run.ts + one module per collection
-├── scripts/import/run.ts         all collections in dependency order, --dry-run / --only=
+├── scripts/import/run.ts         wipe, then all collections in dependency order, --dry-run / --only=
+├── scripts/import/wipe.ts        deletes previously imported data, keeps the team's own accounts
 └── scripts/verify/run.ts
 ```
 
@@ -286,7 +307,9 @@ migration/wordpress/
    the import, and it is never committed (`.data/` is gitignored).
 3. **Cutover:** freeze WP (maintenance mode, or at least no new registrations or profile edits), take a final dump, run load → extract →
    import → verify on production, then set up redirects from old member and organisation URLs (`/member/<slug>` → new route).
-4. Because the import is idempotent, a rerun with a newer dump only adds and updates, so a last-minute delta run before go-live is cheap.
+4. Because a full import wipes first, a rerun with a newer dump always gives a clean copy, so a last-minute run before go-live is cheap.
+5. **After go-live the import must not run again** on production: the wipe would delete everything members and staff
+   changed on the new site, including passwords set there.
 
 ---
 
@@ -294,9 +317,9 @@ migration/wordpress/
 
 `verify/counts.ts` checks, and fails on any mismatch:
 - users: WP count = Payload count; every WP admin has role `admin`
-- members: WP count − merged = Payload count; every merged id appears in some `mergedFromWpIds`
+- members: published WP profiles − merged = Payload count; every merged id appears in some `mergedFromWpIds`
 - every member→user link from WP exists in Payload (except the logged dangling ones)
-- organisation links: equal to `organization-members.json` (297 rows on the anonymised dump, 130 with role `admin`, after merges)
+- organisation links: equal to `organization-members.json` (181 rows on the anonymised dump, 108 with role `admin`, after merges and the status filter)
 - spot checks: 20 random members, rendered side by side (WP JSON vs Payload doc) in a report
 
 ---

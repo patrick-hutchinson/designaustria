@@ -1,4 +1,7 @@
-// Import: .data/wp-extract/*.json → Payload (Local API). Upserts by legacy key, so it can be rerun safely.
+// Import: .data/wp-extract/*.json → Payload (Local API).
+// A full run first wipes everything a previous import wrote (wipe.ts; team accounts made on the new site are kept),
+// so the database always matches the extract exactly. With --only=… nothing is wiped and records are upserted by
+// legacy key instead.
 //
 // Usage (from designaustria-app/):
 //   DATABASE_URL=postgres://payload:payload@127.0.0.1:5433/payload \
@@ -25,6 +28,7 @@ import {
 import { Report } from '../../lib/report'
 import { upsertByLegacyKey, type UpsertAction } from '../../lib/upsert'
 import { mapPool, parseArgs, startPayload } from '../lib-env'
+import { wipeImportedData } from './wipe'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.resolve(HERE, '../../../../.data')
@@ -97,6 +101,9 @@ async function main() {
   const wants = (name: string) => !args.only || args.only.has(name)
   const results: Record<string, StepResult> = {}
   console.log(args.dryRun ? 'DRY RUN: nothing is written\n' : '')
+
+  if (args.only) console.log(`--only=${[...args.only].join(',')}: no wipe, upserting\n`)
+  else await wipeImportedData(payload, { dryRun: args.dryRun })
 
   // categories: two passes so parents exist before they're referenced
   if (wants('categories')) {

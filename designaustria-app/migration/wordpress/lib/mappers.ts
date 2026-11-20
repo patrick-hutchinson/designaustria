@@ -116,7 +116,7 @@ export const mapPartnerStatus = mapEnum('partnerStatus', {
 
 export const mapDisplayOptIn = mapEnum('displayOptIns', { email: 'email', frontpage: 'frontpage' } as const)
 
-/** WordPress post_status → profileStatus, copied 1:1. `auto-draft`/`trash`/… → null: not migrated. */
+/** WordPress post_status → profileStatus. `auto-draft`/`trash`/… → null. Only `publish` is migrated (lib/published.ts). */
 export const mapProfileStatus = mapEnum('profileStatus', {
   publish: 'publish',
   pending: 'pending',

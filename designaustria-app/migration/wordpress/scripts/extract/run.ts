@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url'
 import { EXTRACT_FILES } from '../../lib/extract-types'
 import { loadMergeConfig } from '../../lib/merges'
 import { connectWp, loadPostsWithMeta } from '../../lib/mysql'
+import { parseId } from '../../lib/ids'
+import { dropUsersOfUnmigratedMembers } from '../../lib/published'
 import { Report } from '../../lib/report'
 import { extractCategories } from './categories'
 import { extractMembers } from './members'
@@ -29,7 +31,7 @@ async function main() {
   const conn = await connectWp()
 
   try {
-    const users = await extractUsers(conn, report)
+    const allUsers = await extractUsers(conn, report)
 
     const communities = await loadPostsWithMeta(conn, 'community')
     const memberPosts = await loadPostsWithMeta(conn, 'member')
@@ -37,17 +39,29 @@ async function main() {
       report.warn('meta.duplicate-key', `post ${postId}`, `"${key}" stored more than once; newest value used`)
     }
 
-    const organizations = extractOrganizations(communities.posts, report)
-    const { members, organizationMembers, mergeWarnings } = extractMembers(
+    const { organizations, notMigrated: organizationsNotMigrated } = extractOrganizations(communities.posts, report)
+    const { members, organizationMembers, mergeWarnings, notMigrated } = extractMembers(
       memberPosts.posts,
       {
         organizationIds: new Set(organizations.map((o) => o.legacyWpId)),
-        userIds: new Set(users.map((u) => u.legacyWpId)),
+        userIds: new Set(allUsers.map((u) => u.legacyWpId)),
         merges,
       },
       report,
     )
     mergeWarnings.forEach((warning) => report.warn('merge.provisional', 'config/merges.json', warning))
+
+    // Logins of former members go with their profile (plan §3.1).
+    const { kept: users, dropped: droppedUsers } = dropUsersOfUnmigratedMembers(allUsers, {
+      linkedInWp: new Set(memberPosts.posts.flatMap(({ meta }) => parseId(meta.da_member_user) ?? [])),
+      linkedAfterMigration: new Set(members.flatMap((m) => m.user ?? [])),
+    })
+    report.forget(
+      new Set([
+        ...notMigrated.flatMap((m) => [m.legacyWpId, ...m.legacy.mergedFromWpIds]).map((id) => `member ${id}`),
+        ...droppedUsers.map((u) => `user ${u.legacyWpId}`),
+      ]),
+    )
 
     const usedTerms = new Set([...organizations, ...members].flatMap((record) => record.categories))
     const categories = await extractCategories(conn, usedTerms, report)
@@ -63,7 +77,7 @@ async function main() {
 
     const summary = {
       source: {
-        users: users.length + report.entries.filter((e) => e.code === 'user.invalid-email').length,
+        users: allUsers.length + report.entries.filter((e) => e.code === 'user.invalid-email').length,
         communityPosts: communities.posts.length,
         memberPosts: memberPosts.posts.length,
       },
@@ -76,11 +90,18 @@ async function main() {
         organizationAdmins: organizationMembers.filter((link) => link.role === 'admin').length,
         membersMergedAway: members.reduce((sum, m) => sum + m.legacy.mergedFromWpIds.length, 0),
       },
+      notMigrated: {
+        organizations: organizationsNotMigrated,
+        members: notMigrated.reduce((sum, m) => sum + 1 + m.legacy.mergedFromWpIds.length, 0),
+        users: droppedUsers.length,
+      },
     }
     write(EXTRACT_FILES.report, { ...summary, warnings: report.toJSON() })
 
     console.log(`Extracted to ${path.relative(process.cwd(), EXTRACT_DIR)}`)
     console.table(summary.extracted)
+    console.log('Not migrated (not published on the current site, or the login of such a profile):')
+    console.table(summary.notMigrated)
     console.log('Warnings by type (details in _report.json):')
     console.table(report.counts())
     mergeWarnings.forEach((warning) => console.warn(`⚠ ${warning}`))

@@ -7,13 +7,18 @@ import type { PostWithMeta } from '../../lib/mysql'
 import type { Report } from '../../lib/report'
 import { extractContact } from './contact'
 
-export function extractOrganizations(posts: PostWithMeta[], report: Report): ExtractedOrganization[] {
+/** Only published organisations are migrated (plan §3.1); the rest are counted in `notMigrated`. */
+export function extractOrganizations(
+  posts: PostWithMeta[],
+  report: Report,
+): { organizations: ExtractedOrganization[]; notMigrated: number } {
   const organizations: ExtractedOrganization[] = []
+  let notMigrated = 0
   for (const { post, meta } of posts) {
     const ref = `organization ${post.ID}`
     const profileStatus = mapProfileStatus(post.post_status).value
-    if (!profileStatus) {
-      report.warn('organization.skipped-status', ref, `post_status "${post.post_status}" is not migrated`)
+    if (profileStatus !== 'publish') {
+      notMigrated++
       continue
     }
 
@@ -45,5 +50,5 @@ export function extractOrganizations(posts: PostWithMeta[], report: Report): Ext
       },
     })
   }
-  return organizations
+  return { organizations, notMigrated }
 }

@@ -79,8 +79,9 @@ The login account is thin. Almost all personal data (name, address, member numbe
 | `draft` | 11 | 2 | 9 |
 | `private` | 6 | 6 | 0 |
 
-`publish` means the profile is public in the member directory. `pending` is a mix of newsletter-only contacts (647), former
-or inactive members, and applications (see open questions).
+`publish` means the profile is public in the member directory. `pending` holds the newsletter-only contacts (573 with only
+`newsletter`) and former members: designaustria confirmed that a profile is set to pending when the member leaves.
+Only published profiles are migrated (plan §3.1).
 
 ### Membership status: `da_member_status` (multi-checkbox)
 
@@ -272,14 +273,11 @@ The dump also contains some irrelevant tables and post types: Yoast, Admin Colum
 
 ## 8. Open questions (for designaustria)
 
-1. What does `pending` mean on a member profile: an application, a former member, or "inactive"? (Doesn't block the migration: the status is copied as-is.)
-2. Should newsletter-only contacts (≈560) become members in Payload, or go to the newsletter tool (Mailchimp) only?
-   (For now they're migrated as members with `newsletter = true`.)
-3. Is `_sale_price` the member price? If so, how is it applied (logged-in `member` role, or a specific status)?
-4. Which statuses pay which fee, and is the fee collection (SEPA, `payment_frequency`) handled in another system
+1. Is `_sale_price` the member price? If so, how is it applied (logged-in `member` role, or a specific status)?
+2. Which statuses pay which fee, and is the fee collection (SEPA, `payment_frequency`) handled in another system
    (an accounting tool) that the new site has to sync with?
-5. Does a community admin have extra rights today (editing the company profile, adding colleagues), or is it only a label?
-6. Can a person belong to several organisations? The data has 2 cases. Is that intended?
-7. Should guest orders be linked to member accounts by email on import?
-8. Do we need the full order history in Payload (for customers' "my orders" and downloads), or only as an archive/export?
-9. Can we get the `wp-content/uploads` folder and the `wp_options` table?
+3. Does a community admin have extra rights today (editing the company profile, adding colleagues), or is it only a label?
+4. Can a person belong to several organisations? The data has 2 cases. Is that intended?
+5. Should guest orders be linked to member accounts by email on import?
+6. Do we need the full order history in Payload (for customers' "my orders" and downloads), or only as an archive/export?
+7. Can we get the `wp-content/uploads` folder and the `wp_options` table?

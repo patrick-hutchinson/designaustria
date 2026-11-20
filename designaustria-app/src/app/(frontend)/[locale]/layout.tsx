@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import React from 'react'
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher/LanguageSwitcher'
+import { Menu } from '@/components/Menu/Menu'
 import { isLocale, locales } from '@/i18n'
 import '../styles.css'
 
@@ -37,7 +38,10 @@ export default async function RootLayout(props: {
   return (
     <html lang={locale}>
       <body>
-        <LanguageSwitcher />
+        <header className="header">
+          <Menu locale={locale} />
+          <LanguageSwitcher />
+        </header>
         <main>{children}</main>
       </body>
     </html>

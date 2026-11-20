@@ -162,3 +162,9 @@ svg {
     }
   }
 }
+
+/* Menu on the left, language switcher next to it */
+.header {
+  display: flex;
+  gap: 24px;
+}

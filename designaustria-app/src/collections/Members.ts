@@ -25,13 +25,14 @@ export const Members: CollectionConfig = {
   },
   access: {
     // Staff see everyone; a logged-in member sees only their own profile.
-    // The public website reads published profiles server-side with a restricted `select` (not built yet).
+    // The public website reads published profiles server-side with a restricted `select`.
     read: ({ req }) => {
       if (isStaffUser(req.user)) return true
       if (req.user) return { user: { equals: req.user.id } }
       return false
     },
     create: isStaff,
+    // Members edit their own profile on the website, through src/members/ownProfile.ts (a fixed set of fields).
     update: isStaff,
     delete: isStaff,
   },

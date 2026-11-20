@@ -81,6 +81,8 @@ npm run wp:verify                     # fails on any mismatch with the extract
 
 - The import **refuses non-local databases** unless `--allow-remote` is passed (`.env.local` points at Neon).
 - It stops if the database hasn't run all of `src/migrations`, and never pushes the schema itself.
+- Test login `test@test.test` / `test`, as if just migrated (WordPress hash, draft profile `/de/member/test-member`):
+  `npx tsx migration/wordpress/scripts/seed-test-member.ts [--allow-remote]`. Rerun it to reset the WordPress password.
 - Reports with details (may contain personal values) go to `.data/wp-extract/_report.json` and `.data/wp-import/_report.json`.
 - On the anonymised dump (published profiles only, plan §3.1): 116 categories, 1,215 users, 102 organisations,
   1,293 members (10 duplicates merged), 181 organisation links (108 admins). The first import takes about a minute, mostly password hashing.

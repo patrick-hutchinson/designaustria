@@ -1,0 +1,66 @@
+$size: 40px;
+
+.placeholder {
+  width: $size;
+  height: $size;
+}
+
+.login {
+  text-decoration: none;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+}
+
+.account {
+  position: relative;
+
+  // The menu opens on hover, and on keyboard focus (tab to the avatar).
+  &:hover .menu,
+  &:focus-within .menu {
+    display: flex;
+  }
+}
+
+.avatar {
+  width: $size;
+  height: $size;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255, 255, 255);
+  color: rgb(0, 0, 0);
+  font: inherit;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.menu {
+  display: none;
+  position: absolute;
+  top: 100%; // directly below the avatar, so the hover doesn't break on the way down
+  right: 0;
+  z-index: 10;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 8px 0;
+  background: rgb(30, 30, 30);
+  border: 1px solid rgb(80, 80, 80);
+
+  a,
+  button {
+    display: block;
+    padding: 4px 16px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+      background: rgb(60, 60, 60);
+    }
+  }
+}

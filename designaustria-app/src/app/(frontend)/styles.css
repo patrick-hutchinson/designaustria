@@ -163,8 +163,13 @@ svg {
   }
 }
 
-/* Menu on the left, language switcher next to it */
+/* Menu on the left, language switcher next to it, account menu on the right */
 .header {
   display: flex;
+  align-items: center;
   gap: 24px;
+
+  > :last-child {
+    margin-left: auto;
+  }
 }

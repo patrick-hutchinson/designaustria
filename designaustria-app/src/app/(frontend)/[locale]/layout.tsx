@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import React from 'react'
 
+import { AccountMenu } from '@/components/AccountMenu/AccountMenu'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher/LanguageSwitcher'
 import { Menu } from '@/components/Menu/Menu'
 import { isLocale, locales } from '@/i18n'
@@ -41,6 +42,7 @@ export default async function RootLayout(props: {
         <header className="header">
           <Menu locale={locale} />
           <LanguageSwitcher />
+          <AccountMenu locale={locale} />
         </header>
         <main>{children}</main>
       </body>

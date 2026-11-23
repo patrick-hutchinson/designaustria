@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import React from 'react'
 
 import { locales } from '@/i18n'
+
+import styles from './LanguageSwitcher.module.scss'
 
 // Links to the same page in every language: /de/events <-> /en/events
 export function LanguageSwitcher() {
@@ -12,7 +13,7 @@ export function LanguageSwitcher() {
   const [, current, ...rest] = pathname.split('/')
 
   return (
-    <nav className="language-switcher">
+    <nav className={styles['language-switcher']}>
       {locales.map((locale) => (
         <Link
           key={locale}

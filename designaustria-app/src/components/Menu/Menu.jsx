@@ -12,6 +12,7 @@ export function Menu({ locale = 'de', setOpen }) {
       <nav className={styles.nav}>
         <Link href={`/${locale}/members`}>{locale === 'de' ? 'Mitglieder' : 'Members'}</Link>
         <Link href={`/${locale}/events`}>{locale === 'de' ? 'Veranstaltungen' : 'Events'}</Link>
+        <Link href={`/${locale}/shop`}>Shop</Link>
         <Link href={`/${locale}/about`}>About</Link>
       </nav>
     </div>

@@ -1,0 +1,17 @@
+.header {
+  position: fixed;
+
+  width: 100dvw;
+  padding: 12px;
+  top: 0px;
+  left: 0px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.controls {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+}

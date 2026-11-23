@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 import { vercelBlobStorage } from '@payloadcms/storage-vercel-blob'
 import { muxVideoPlugin } from '@oversightstudio/mux-video'
+import { muxVideoFields } from './plugins/muxVideoFields'
 import { isStaffUser } from './access/roles'
 
 import { Users } from './collections/Users'
@@ -65,8 +66,14 @@ export default buildConfig({
       },
       uploadSettings: {
         cors_origin: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
+        new_asset_settings: {
+          // Mux also makes a plain MP4 of every upload, for the loop mode of <Video>:
+          // https://stream.mux.com/<playbackId>/highest.mp4 (see src/lib/mux.js)
+          static_renditions: [{ resolution: 'highest' }],
+        },
       },
       access: (req) => isStaffUser(req.user), // only staff may upload videos
     }),
+    muxVideoFields, // our extra fields on the Videos collection (playbackMode)
   ],
 })

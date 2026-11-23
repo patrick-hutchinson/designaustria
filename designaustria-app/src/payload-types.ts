@@ -598,6 +598,10 @@ export interface MuxVideo {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Overrides how this video plays on the website. Loop suits short clips; Player suits longer videos.
+   */
+  playbackMode?: ('auto' | 'loop' | 'player') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1027,6 +1031,7 @@ export interface MuxVideoSelect<T extends boolean = true> {
         gifUrl?: T;
         id?: T;
       };
+  playbackMode?: T;
   updatedAt?: T;
   createdAt?: T;
 }

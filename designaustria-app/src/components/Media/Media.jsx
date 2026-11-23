@@ -20,6 +20,9 @@ import { imageSizes, sizesPresets } from '@/images'
  * @param {number} [props.height]
  *   Use instead of `sizes` when the CSS gives the image a fixed height in px
  *   (and `width: auto`): the displayed width is then calculated from the aspect ratio.
+ * @param {'loop' | 'player'} [props.videoMode]
+ *   How videos play here, unless the video's own "Playback mode" in the admin says otherwise.
+ *   'loop' = muted autoplay MP4, 'player' = streaming with controls. Default: 'player'.
  * @param {string} [props.className]
  */
 export function Media({ media, ...props }) {
@@ -32,7 +35,7 @@ export function Media({ media, ...props }) {
   if ('relationTo' in media) {
     if (!media.value || typeof media.value !== 'object') return null
     if (media.relationTo === 'mux-video') {
-      return <Video video={media.value} className={props.className} />
+      return <Video video={media.value} mode={props.videoMode} className={props.className} />
     }
     return <Image image={media.value} {...props} />
   }

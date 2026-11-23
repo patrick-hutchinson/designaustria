@@ -20,12 +20,11 @@ export const Media: CollectionConfig = {
     },
   ],
   upload: {
-    staticDir: 'media',
     imageSizes: [
       { name: 'placeholder', width: 16 }, // tiny version for a blurred placeholder (LQIP)
       ...imageSizes, // the responsive widths, defined in src/images.ts
     ],
     adminThumbnail: 'sm',
-    mimeTypes: ['image/*', 'video/*'], // only images and videos can be uploaded
+    mimeTypes: ['image/*'], // images only – videos go to Mux (mux-video collection)
   },
 }

@@ -4,6 +4,7 @@ import * as migration_20261119_122723_phone_type_fax from './20261119_122723_pho
 import * as migration_20261119_125445_legacy_password_retired from './20261119_125445_legacy_password_retired';
 import * as migration_20261119_150122_media_image_sizes from './20261119_150122_media_image_sizes';
 import * as migration_20261119_151633_events_media_richtext from './20261119_151633_events_media_richtext';
+import * as migration_20261123_102503_media_and_mux_video from './20261123_102503_media_and_mux_video';
 
 export const migrations = [
   {
@@ -34,6 +35,11 @@ export const migrations = [
   {
     up: migration_20261119_151633_events_media_richtext.up,
     down: migration_20261119_151633_events_media_richtext.down,
-    name: '20261119_151633_events_media_richtext'
+    name: '20261119_151633_events_media_richtext',
+  },
+  {
+    up: migration_20261123_102503_media_and_mux_video.up,
+    down: migration_20261123_102503_media_and_mux_video.down,
+    name: '20261123_102503_media_and_mux_video'
   },
 ];

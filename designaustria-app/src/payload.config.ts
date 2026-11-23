@@ -4,6 +4,9 @@ import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
+import { vercelBlobStorage } from '@payloadcms/storage-vercel-blob'
+import { muxVideoPlugin } from '@oversightstudio/mux-video'
+import { isStaffUser } from './access/roles'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
@@ -43,5 +46,27 @@ export default buildConfig({
     defaultLocale: 'de',
     fallback: true, // if English is empty, show the German text
   },
-  plugins: [],
+  plugins: [
+    vercelBlobStorage({
+      enabled: true,
+      collections: {
+        // serve files straight from Blob's CDN, not through /api/media/file/…
+        media: { disablePayloadAccessControl: true },
+      },
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      clientUploads: true, // browser → Blob directly, avoids Vercel's upload limit
+    }),
+    muxVideoPlugin({
+      enabled: true,
+      initSettings: {
+        tokenId: process.env.MUX_TOKEN_ID || '',
+        tokenSecret: process.env.MUX_TOKEN_SECRET || '',
+        webhookSecret: process.env.MUX_WEBHOOK_SIGNING_SECRET || '',
+      },
+      uploadSettings: {
+        cors_origin: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
+      },
+      access: (req) => isStaffUser(req.user), // only staff may upload videos
+    }),
+  ],
 })

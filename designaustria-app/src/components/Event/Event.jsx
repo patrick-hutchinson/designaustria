@@ -11,7 +11,7 @@ export function Event({ event, locale = 'de' }) {
 
   return (
     <article className="event">
-      {/* height={200} matches `.media { height: 200px }` in Event.module.scss */}
+      {/* Image or Mux video. height={200} matches `.media { height: 200px }` in Event.module.scss */}
       <Media media={event.media} className={styles.media} height={200} />
       <h2>{event.title}</h2>
       <p>

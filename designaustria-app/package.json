@@ -23,9 +23,12 @@
     "wp:verify": "tsx migration/wordpress/scripts/verify/run.ts"
   },
   "dependencies": {
+    "@mux/mux-player-react": "^3.14.1",
+    "@oversightstudio/mux-video": "^1.4.1",
     "@payloadcms/db-postgres": "3.94.0",
     "@payloadcms/next": "3.94.0",
     "@payloadcms/richtext-lexical": "3.94.0",
+    "@payloadcms/storage-vercel-blob": "3.94.0",
     "@payloadcms/ui": "3.94.0",
     "bcryptjs": "^3.0.3",
     "cross-env": "^7.0.3",

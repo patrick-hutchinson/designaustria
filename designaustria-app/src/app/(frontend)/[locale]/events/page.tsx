@@ -31,9 +31,12 @@ export default async function EventsPage(props: Props) {
   const payload = await getPayload({ config })
 
   // Local API: queries the database directly (no HTTP request).
+  // Placeholder until the real list (upcoming/past, filters, pagination) is built: newest 20.
   const { docs: events } = await payload.find({
     collection: 'events',
-    sort: 'date', // oldest first; use '-date' for newest first
+    where: { visibility: { not_equals: 'hidden' } }, // hidden events stay in the admin only
+    sort: '-startsAt', // newest first
+    limit: 20,
     locale, // 'de' or 'en', taken from the URL
   })
 

@@ -1,10 +1,10 @@
-// Categories used by members and organisations (ACF taxonomy field da_category), plus their parents,
+// Categories used by members, organisations and events (ACF taxonomy field da_category), plus their parents,
 // with the English title from Polylang's term_translations where one exists.
 
 import type { ExtractedCategory } from '../../lib/extract-types'
 import { cleanText } from '../../lib/mappers'
 import { query, type WpConnection } from '../../lib/mysql'
-import { tryUnserialize } from '../../lib/php-unserialize'
+import { loadTermTranslations } from '../../lib/polylang'
 import type { Report } from '../../lib/report'
 
 interface TermRow {
@@ -22,19 +22,13 @@ export async function extractCategories(conn: WpConnection, usedTermIds: Set<num
   )
   const byId = new Map(terms.map((term) => [term.term_id, term]))
 
-  // Polylang: one term_translations row per group, description = a:2:{s:2:"de";i:1;s:2:"en";i:187;}
-  const groups = await query<{ description: string }>(conn, `SELECT description FROM wp_term_taxonomy WHERE taxonomy = 'term_translations'`)
-  const englishOf = new Map<number, number>()
-  for (const { description } of groups) {
-    const group = tryUnserialize(description) as Record<string, number> | undefined
-    if (group?.de && group.en) englishOf.set(Number(group.de), Number(group.en))
-  }
+  const { englishOf } = await loadTermTranslations(conn)
 
   // Used terms plus all their ancestors, so `parent` always resolves.
   const include = new Set<number>()
   for (const id of usedTermIds) {
     if (!byId.has(id)) {
-      report.warn('category.missing-term', `term ${id}`, 'referenced by a member/organisation but no longer exists; dropped')
+      report.warn('category.missing-term', `term ${id}`, 'referenced by a member, organisation or event but no longer exists; dropped')
       continue
     }
     for (let current: number | undefined = id; current && !include.has(current); current = byId.get(current)?.parent) {

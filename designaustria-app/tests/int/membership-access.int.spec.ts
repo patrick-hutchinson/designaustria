@@ -100,7 +100,7 @@ describe.skipIf(!isLocalDb)('membership access control', () => {
     await expect(
       payload.create({
         collection: 'events',
-        data: { title: 'x', date: new Date().toISOString(), location: 'x' },
+        data: { title: 'x', startsAt: new Date().toISOString(), type: 'internal', visibility: 'everywhere' },
         user: alice,
         overrideAccess: false,
       }),

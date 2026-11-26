@@ -537,20 +537,8 @@ export interface Media {
 export interface Event {
   id: number;
   title: string;
-  date: string;
-  location: string;
-  /**
-   * An image or a video.
-   */
-  media?:
-    | ({
-        relationTo: 'media';
-        value: number | Media;
-      } | null)
-    | ({
-        relationTo: 'mux-video';
-        value: number | MuxVideo;
-      } | null);
+  startsAt: string;
+  endsAt?: string | null;
   description?: {
     root: {
       type: string;
@@ -566,6 +554,102 @@ export interface Event {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Images and/or videos, in this order.
+   */
+  gallery?:
+    | (
+        | {
+            relationTo: 'media';
+            value: number | Media;
+          }
+        | {
+            relationTo: 'mux-video';
+            value: number | MuxVideo;
+          }
+      )[]
+    | null;
+  documents?: (number | Media)[] | null;
+  links?:
+    | {
+        url: string;
+        /**
+         * Shown instead of the URL (optional).
+         */
+        label?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  venue?: {
+    /**
+     * Venue name, e.g. designforum Wien.
+     */
+    name?: string | null;
+    /**
+     * Street and number
+     */
+    street?: string | null;
+    zip?: string | null;
+    city?: string | null;
+    /**
+     * ISO code, e.g. AT
+     */
+    country?: string | null;
+  };
+  admission?: {
+    show?: boolean | null;
+    prices?:
+      | {
+          kind: 'regular' | 'reduced' | 'members' | 'other';
+          /**
+           * For "Other", e.g. Studierende.
+           */
+          label?: string | null;
+          /**
+           * Free text, e.g. 90, 2 € or kostenlos.
+           */
+          amount?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * Prices as free text.
+     */
+    note?: string | null;
+  };
+  openingHours?: {
+    show?: boolean | null;
+    text?: string | null;
+  };
+  notes?: string | null;
+  legacy?: {
+    wpStatus?: string | null;
+    /**
+     * WordPress ID of the English post
+     */
+    enWpId?: number | null;
+    productWpId?: number | null;
+    imageWpIds?: number[] | null;
+    inlineImageWpIds?: number[] | null;
+    documentWpIds?: number[] | null;
+    rawPlace?: string | null;
+    rawCosts?: string | null;
+  };
+  /**
+   * URL part, per language. Filled from the title if left empty.
+   */
+  slug?: string | null;
+  type: 'internal' | 'external';
+  visibility: 'everywhere' | 'notOnHome' | 'hidden';
+  categories?: (number | Category)[] | null;
+  /**
+   * e.g. #DenkWeiter
+   */
+  badge?: string | null;
+  /**
+   * WordPress post ID (German post), set by the migration.
+   */
+  legacyWpId?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1002,10 +1086,66 @@ export interface MediaSelect<T extends boolean = true> {
  */
 export interface EventsSelect<T extends boolean = true> {
   title?: T;
-  date?: T;
-  location?: T;
-  media?: T;
+  startsAt?: T;
+  endsAt?: T;
   description?: T;
+  gallery?: T;
+  documents?: T;
+  links?:
+    | T
+    | {
+        url?: T;
+        label?: T;
+        id?: T;
+      };
+  venue?:
+    | T
+    | {
+        name?: T;
+        street?: T;
+        zip?: T;
+        city?: T;
+        country?: T;
+      };
+  admission?:
+    | T
+    | {
+        show?: T;
+        prices?:
+          | T
+          | {
+              kind?: T;
+              label?: T;
+              amount?: T;
+              id?: T;
+            };
+        note?: T;
+      };
+  openingHours?:
+    | T
+    | {
+        show?: T;
+        text?: T;
+      };
+  notes?: T;
+  legacy?:
+    | T
+    | {
+        wpStatus?: T;
+        enWpId?: T;
+        productWpId?: T;
+        imageWpIds?: T;
+        inlineImageWpIds?: T;
+        documentWpIds?: T;
+        rawPlace?: T;
+        rawCosts?: T;
+      };
+  slug?: T;
+  type?: T;
+  visibility?: T;
+  categories?: T;
+  badge?: T;
+  legacyWpId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

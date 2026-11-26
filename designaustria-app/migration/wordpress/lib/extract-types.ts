@@ -134,11 +134,69 @@ export interface ExtractedOrganizationMember {
   role: 'member' | 'admin'
 }
 
+/** A localized text: `de` is the document's own language, `en` comes from the Polylang partner (null = not translated). */
+export interface Localized<T = string> {
+  de: T | null
+  en: T | null
+}
+
+export interface ExtractedEventPrice {
+  kind: 'regular' | 'reduced' | 'members' | 'other'
+  label: Localized
+  amount: string | null
+}
+
+export interface ExtractedEvent {
+  /** WordPress ID of the German post (of the English one for events that only exist in English) */
+  legacyWpId: number
+  title: Localized
+  slug: Localized
+  /** ISO timestamps in UTC */
+  startsAt: string
+  endsAt: string | null
+  type: 'internal' | 'external'
+  visibility: 'everywhere' | 'notOnHome' | 'hidden'
+  /** WordPress term IDs (German terms) */
+  categories: number[]
+  venue: { name: Localized; street: string | null; zip: string | null; city: string | null; country: string | null }
+  admission: { show: boolean; prices: ExtractedEventPrice[]; note: Localized }
+  openingHours: { show: boolean; text: Localized }
+  notes: Localized
+  links: { url: string; label: string | null }[]
+  badge: string | null
+  /** Cleaned HTML (lib/wp-html.ts); the import converts it to Lexical. Inline images are `[[wp-image:<id>]]` paragraphs. */
+  description: Localized
+  legacy: {
+    wpStatus: 'publish' | 'private'
+    enWpId: number | null
+    productWpId: number | null
+    imageWpIds: number[]
+    inlineImageWpIds: number[]
+    documentWpIds: number[]
+    rawPlace: string | null
+    rawCosts: string | null
+  }
+}
+
+/** An old URL that the pattern redirects don't cover (03-events-plan §4.7). Paths without trailing slash. */
+export interface ExtractedRedirect {
+  entity: 'event'
+  legacyWpId: number
+  locale: 'de' | 'en'
+  /** e.g. /veranstaltung/old-slug */
+  from: string
+  /** e.g. /de/events/new-slug */
+  to: string
+  reason: 'old-slug' | 'slug-changed'
+}
+
 export const EXTRACT_FILES = {
   categories: 'categories.json',
   users: 'users.json',
   organizations: 'organizations.json',
   members: 'members.json',
   organizationMembers: 'organization-members.json',
+  events: 'events.json',
+  redirects: 'redirects.json',
   report: '_report.json',
 } as const

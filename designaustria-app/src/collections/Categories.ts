@@ -3,8 +3,8 @@ import type { CollectionConfig } from 'payload'
 import { anyone, isStaff } from '@/access/roles'
 import { legacyWpIdField } from '@/fields/legacyWpId'
 
-// Focus areas and regions (e.g. "Grafikdesign", "Wien"). Migrated from the WordPress `category` taxonomy;
-// for now only the terms used by members and organisations. News and events can reuse this collection later.
+// Focus areas, programme types and regions (e.g. "Grafikdesign", "Ausstellung", "Wien"). Migrated from the WordPress
+// `category` taxonomy: the terms used by members, organisations and events. News can reuse this collection later.
 export const Categories: CollectionConfig = {
   slug: 'categories',
   admin: {

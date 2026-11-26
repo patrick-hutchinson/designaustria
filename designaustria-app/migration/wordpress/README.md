@@ -11,10 +11,11 @@ migration/wordpress/
 ├── docs/
 │   ├── 01-analysis.md       how the WP database is structured
 │   ├── 02-plan.md           WP → Payload mapping and decisions (people and organisations)
-│   └── 03-events-plan.md    WP → Payload mapping for events (extends the `events` collection)
+│   └── 03-events-plan.md    WP → Payload mapping for events (replaces the `events` collection)
 ├── config/merges.json       reviewed decisions for duplicate member profiles (plan §4)
 ├── docker-compose.yml       throwaway MySQL 8.4 to read the dump + local Payload Postgres
-├── lib/                     parsers and mappers (PHP unserialize, ACF ids/repeaters, status split, merges, upsert) + unit tests
+├── lib/                     parsers and mappers (PHP unserialize, ACF ids/repeaters, status split, merges, upsert,
+│                            Vienna dates, slugs, Polylang, WordPress HTML → Lexical, event fields) + unit tests
 └── scripts/
     ├── 00-load-dump.sh      load the SQL dump into MySQL
     ├── analyze/             read-only SQL behind the numbers in 01-analysis.md, plus check-helpers.ts
@@ -59,6 +60,10 @@ npm run payload -- migrate                       # apply src/migrations
 PAYLOAD_SECRET=local-test-secret npm run test:int  # incl. access-control tests (local DB only)
 ```
 
+Set `BLOB_READ_WRITE_TOKEN` (any value, e.g. `vercel_blob_rw_placeholder`) when running `payload migrate:create` or
+`generate:types` locally. Without it the Vercel Blob plugin leaves out the `_objectKey` field on `media`, and the generated
+migration drops that column. The local DB was once pushed in dev mode, so `payload migrate` asks before it runs; answer yes.
+
 Helpers:
 
 ```sh
@@ -84,8 +89,11 @@ npm run wp:verify                     # fails on any mismatch with the extract; 
 - The import **refuses non-local databases** unless `--allow-remote` is passed (`.env.local` points at Neon).
 - It stops if the database hasn't run all of `src/migrations`, and never pushes the schema itself.
 - Reports with details (may contain personal values) go to `.data/wp-extract/_report.json` and `.data/wp-import/_report.json`.
-- On the anonymised dump (published profiles only, plan §3.1): 116 categories, 1,215 users, 102 organisations,
-  1,293 members (10 duplicates merged), 181 organisation links (108 admins). The first import takes about a minute, mostly password hashing.
+- On the anonymised dump (published profiles only, plan §3.1): 132 categories, 1,215 users, 102 organisations,
+  1,293 members (10 duplicates merged), 181 organisation links (108 admins), 1,396 events (33 with English, 03-events-plan §5)
+  and 32 event redirects. The first import takes about a minute, mostly password hashing.
+- Event descriptions still contain `[[wp-image:<id>]]` placeholders where inline images go; the media step (not built yet)
+  replaces them. `wp:verify` prints how many are left.
 
 ### Adding an entity
 

@@ -3,9 +3,10 @@
 
 import type { ImportStep } from '../step'
 import { categories } from './categories'
+import { events } from './events'
 import { members } from './members'
 import { organizationMembers } from './organization-members'
 import { organizations } from './organizations'
 import { users } from './users'
 
-export const STEPS: ImportStep[] = [categories, users, organizations, members, organizationMembers]
+export const STEPS: ImportStep[] = [categories, users, organizations, members, organizationMembers, events]

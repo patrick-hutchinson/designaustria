@@ -60,8 +60,16 @@ export function compareKeys(name: string, expected: (number | string)[], docs: D
  */
 export function spotCheck<T extends { legacyWpId: number }>(name: string, sample: T[], docs: Doc[], skip: Set<string>) {
   const byLegacy = new Map(docs.map((doc) => [doc.legacyWpId as number, doc]))
+  // Drops row ids, turns undefined into null and sorts keys (Payload doesn't keep the extract's key order).
   const normalize = (value: unknown): unknown =>
-    JSON.parse(JSON.stringify(value ?? null, (key, v) => (key === 'id' ? undefined : v === undefined ? null : v)))
+    JSON.parse(
+      JSON.stringify(value ?? null, (key, v) => {
+        if (key === 'id') return undefined
+        if (v === undefined) return null
+        if (typeof v === 'object' && v !== null && !Array.isArray(v)) return Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+        return v
+      }),
+    )
   let fieldErrors = 0
   for (const record of sample) {
     const doc = byLegacy.get(record.legacyWpId)

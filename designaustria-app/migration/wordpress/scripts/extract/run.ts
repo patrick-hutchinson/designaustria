@@ -15,6 +15,7 @@ import { parseId } from '../../lib/ids'
 import { dropUsersOfUnmigratedMembers } from '../../lib/published'
 import { Report } from '../../lib/report'
 import { extractCategories } from './categories'
+import { extractEvents } from './events'
 import { extractMembers } from './members'
 import { extractOrganizations } from './organizations'
 import { extractUsers } from './users'
@@ -63,10 +64,14 @@ async function main() {
       ]),
     )
 
-    const usedTerms = new Set([...organizations, ...members].flatMap((record) => record.categories))
+    const { events, redirects, source: eventPosts, notMigrated: eventsNotMigrated } = await extractEvents(conn, report)
+
+    // Categories last: they keep only the terms something migrated uses.
+    const withCategories = [...organizations, ...members, ...events]
+    const usedTerms = new Set(withCategories.flatMap((record) => record.categories))
     const categories = await extractCategories(conn, usedTerms, report)
     const known = new Set(categories.map((c) => c.legacyWpId))
-    for (const record of [...organizations, ...members]) record.categories = record.categories.filter((id) => known.has(id))
+    for (const record of withCategories) record.categories = record.categories.filter((id) => known.has(id))
 
     mkdirSync(EXTRACT_DIR, { recursive: true })
     write(EXTRACT_FILES.categories, categories)
@@ -74,12 +79,15 @@ async function main() {
     write(EXTRACT_FILES.organizations, organizations)
     write(EXTRACT_FILES.members, members)
     write(EXTRACT_FILES.organizationMembers, organizationMembers)
+    write(EXTRACT_FILES.events, events)
+    write(EXTRACT_FILES.redirects, redirects)
 
     const summary = {
       source: {
         users: allUsers.length + report.entries.filter((e) => e.code === 'user.invalid-email').length,
         communityPosts: communities.posts.length,
         memberPosts: memberPosts.posts.length,
+        eventPosts,
       },
       extracted: {
         categories: categories.length,
@@ -89,18 +97,22 @@ async function main() {
         organizationMembers: organizationMembers.length,
         organizationAdmins: organizationMembers.filter((link) => link.role === 'admin').length,
         membersMergedAway: members.reduce((sum, m) => sum + m.legacy.mergedFromWpIds.length, 0),
+        events: events.length,
+        eventsTranslated: events.filter((e) => e.legacy.enWpId !== null).length,
+        redirects: redirects.length,
       },
       notMigrated: {
         organizations: organizationsNotMigrated,
         members: notMigrated.reduce((sum, m) => sum + 1 + m.legacy.mergedFromWpIds.length, 0),
         users: droppedUsers.length,
+        eventPostsByReason: eventsNotMigrated,
       },
     }
     write(EXTRACT_FILES.report, { ...summary, warnings: report.toJSON() })
 
     console.log(`Extracted to ${path.relative(process.cwd(), EXTRACT_DIR)}`)
     console.table(summary.extracted)
-    console.log('Not migrated (not published on the current site, or the login of such a profile):')
+    console.log('Not migrated (not published on the current site, the login of such a profile, or an event without a start date):')
     console.table(summary.notMigrated)
     console.log('Warnings by type (details in _report.json):')
     console.table(report.counts())

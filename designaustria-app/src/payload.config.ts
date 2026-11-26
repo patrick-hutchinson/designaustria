@@ -56,6 +56,9 @@ export default buildConfig({
       },
       token: process.env.BLOB_READ_WRITE_TOKEN,
       clientUploads: true, // browser → Blob directly, avoids Vercel's upload limit
+      // Without a token the plugin is disabled, and would also leave out its `_objectKey` field on media. Then the schema
+      // depends on the environment: a dev push or `migrate:create` without the token drops the column the migrations have.
+      alwaysInsertFields: true,
     }),
     muxVideoPlugin({
       enabled: true,

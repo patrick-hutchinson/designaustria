@@ -60,9 +60,12 @@ npm run payload -- migrate                       # apply src/migrations
 PAYLOAD_SECRET=local-test-secret npm run test:int  # incl. access-control tests (local DB only)
 ```
 
-Set `BLOB_READ_WRITE_TOKEN` (any value, e.g. `vercel_blob_rw_placeholder`) when running `payload migrate:create` or
-`generate:types` locally. Without it the Vercel Blob plugin leaves out the `_objectKey` field on `media`, and the generated
-migration drops that column. The local DB was once pushed in dev mode, so `payload migrate` asks before it runs; answer yes.
+The local DB was once pushed in dev mode, so `payload migrate` asks before it runs; answer yes.
+
+The Neon dev database in `.env.local` works the other way: `npm run dev` pushes the schema to it directly, and
+`payload migrate` is never run there (it would try to redo what the push already did). The import and verify scripts
+see that (the `dev` row in `payload_migrations`) and only warn about pending migrations, so run `npm run dev` on the
+branch first. For Neon: `unset DATABASE_URL`, then pass `--allow-remote`.
 
 Helpers:
 

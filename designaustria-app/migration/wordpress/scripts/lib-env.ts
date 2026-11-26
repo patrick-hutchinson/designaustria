@@ -2,9 +2,10 @@
 //
 // Safety:
 // - Refuses any database that isn't on localhost unless --allow-remote is passed. .env.local points at the
-//   shared Neon database, so forgetting to set DATABASE_URL must not write there.
-// - Sets PAYLOAD_MIGRATING so Payload never pushes the schema in dev mode; the schema comes from src/migrations only.
-// - Stops if src/migrations has migrations the database hasn't run yet.
+//   Neon dev database, so forgetting to set DATABASE_URL must not write there.
+// - Sets PAYLOAD_MIGRATING so these scripts never push the schema themselves.
+// - Stops if src/migrations has migrations the database hasn't run yet, unless the database is kept up to date by
+//   `npm run dev` pushes (the Neon dev DB), which never records migrations; then it only warns.
 
 import nextEnv from '@next/env'
 import type { Payload } from 'payload'
@@ -46,6 +47,13 @@ export async function startPayload({ allowRemote }: Pick<ScriptArgs, 'allowRemot
   const ran = await payload.find({ collection: 'payload-migrations', pagination: false, limit: 0, depth: 0 })
   const ranNames = new Set(ran.docs.map((doc) => doc.name))
   const pending = migrations.map((m) => m.name).filter((name) => !ranNames.has(name))
+  // `npm run dev` pushes the schema instead of running migrations, and marks that with a "dev" row (batch -1). A database
+  // kept up to date that way (the Neon dev DB) never records migrations, so pending ones don't mean it's behind.
+  // If the push is stale, the import fails on a missing column instead.
+  if (pending.length && ran.docs.some((doc) => doc.name === 'dev' && Number(doc.batch) === -1)) {
+    console.warn('⚠ Schema is pushed by `npm run dev`, not migrated: run `npm run dev` on this branch first, so it matches the code.')
+    return payload
+  }
   if (pending.length) {
     throw new Error(`Database schema is behind: run "npm run payload -- migrate" first (pending: ${pending.join(', ')})`)
   }

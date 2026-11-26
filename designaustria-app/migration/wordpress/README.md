@@ -89,6 +89,15 @@ npm run wp:import                     # wipe previous import, then write; --only
 npm run wp:verify                     # fails on any mismatch with the extract; --only=members checks one entity
 ```
 
+Or use the menu, which asks for the database (`.env.local`, a pasted URL such as preview's, or the local Docker one),
+the action (import or verify only) and what: All (wipes the previous import first), Members (people and organisations)
+or Events, each with the entities it depends on (`NEEDS` in `scripts/sync.ts`). It lists the tables to confirm, runs a
+dry run, asks again (the host name, for a remote database), imports and verifies:
+
+```sh
+npm run wp:sync
+```
+
 - The import **refuses non-local databases** unless `--allow-remote` is passed (`.env.local` points at Neon).
 - It stops if the database hasn't run all of `src/migrations`, and never pushes the schema itself.
 - Reports with details (may contain personal values) go to `.data/wp-extract/_report.json` and `.data/wp-import/_report.json`.

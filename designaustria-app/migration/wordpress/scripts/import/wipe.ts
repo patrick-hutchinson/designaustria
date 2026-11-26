@@ -1,51 +1,54 @@
 // Wipe before import: removes everything the WordPress import writes, so each run gives exactly the extract
 // (records that are no longer migrated, e.g. pending profiles, don't linger). Plan §7.
 //
-// Kept: accounts made on the new site for the team (no legacyWpId, role admin or staff).
-// Everything else in users, members, organizations, organization-members and categories is deleted. The child
-// tables (arrays, rels, locales, sessions, preferences, locked documents) go with them via ON DELETE CASCADE.
-// One transaction: a failure leaves the database as it was.
+// Each step declares what it wipes (steps/*.ts). Rows matched by its `keep` stay, e.g. accounts made on the new
+// site for the team (no legacyWpId, role admin or staff). The child tables (arrays, rels, locales, sessions,
+// preferences, locked documents) go with them via ON DELETE CASCADE. Tables are emptied in reverse step order,
+// in one transaction: a failure leaves the database as it was.
 //
 // Never run this after go-live: it would delete everything members changed on the new site.
 
 import { sql } from '@payloadcms/db-postgres'
 import type { Payload } from 'payload'
 
-const KEEP_USER = sql`legacy_wp_id IS NULL AND EXISTS (
-  SELECT 1 FROM users_roles r WHERE r.parent_id = users.id AND r.value IN ('admin', 'staff')
-)`
+import type { ImportStep } from './step'
 
 type Counts = Record<string, number>
 
-async function count(payload: Payload): Promise<{ delete: Counts; keptAccounts: number }> {
-  const { rows } = await payload.db.drizzle.execute<Record<string, string>>(sql`SELECT
-    (SELECT count(*) FROM organization_members) AS "organization-members",
-    (SELECT count(*) FROM members) AS members,
-    (SELECT count(*) FROM organizations) AS organizations,
-    (SELECT count(*) FROM users WHERE NOT (${KEEP_USER})) AS users,
-    (SELECT count(*) FROM categories) AS categories,
-    (SELECT count(*) FROM users WHERE ${KEEP_USER}) AS kept`)
-  const { kept, ...rest } = rows[0]
-  return { delete: Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, Number(v)])), keptAccounts: Number(kept) }
+const kept = ({ keep }: ImportStep['wipe']) => keep ?? sql`false`
+
+async function count(payload: Payload, steps: ImportStep[]): Promise<{ delete: Counts; keep: Counts }> {
+  const result = { delete: {} as Counts, keep: {} as Counts }
+  for (const step of steps) {
+    const table = sql.identifier(step.wipe.table)
+    const { rows } = await payload.db.drizzle.execute<{ wiped: string; kept: string }>(sql`SELECT
+      count(*) FILTER (WHERE NOT (${kept(step.wipe)})) AS wiped,
+      count(*) FILTER (WHERE ${kept(step.wipe)}) AS kept
+      FROM ${table}`)
+    result.delete[step.name] = Number(rows[0].wiped)
+    if (step.wipe.keep) result.keep[step.name] = Number(rows[0].kept)
+  }
+  return result
 }
 
-export async function wipeImportedData(payload: Payload, { dryRun }: { dryRun: boolean }): Promise<void> {
-  const before = await count(payload)
+export async function wipeImportedData(payload: Payload, steps: ImportStep[], { dryRun }: { dryRun: boolean }): Promise<void> {
+  const reversed = [...steps].reverse()
+  const before = await count(payload, reversed)
   console.log(`${dryRun ? 'Would wipe' : 'Wiping'} before import: ${JSON.stringify(before.delete)}`)
-  console.log(`Keeping ${before.keptAccounts} team account(s) made on the new site (no WordPress id, role admin or staff)`)
+  if (before.keep.users !== undefined) {
+    console.log(`Keeping ${before.keep.users} team account(s) made on the new site (no WordPress id, role admin or staff)`)
+  }
   if (dryRun) return
 
   await payload.db.drizzle.transaction(async (tx) => {
-    await tx.execute(sql`DELETE FROM organization_members`)
-    await tx.execute(sql`DELETE FROM members`)
-    await tx.execute(sql`DELETE FROM organizations`)
-    await tx.execute(sql`DELETE FROM users WHERE NOT (${KEEP_USER})`)
-    await tx.execute(sql`DELETE FROM categories`)
+    for (const step of reversed) {
+      await tx.execute(sql`DELETE FROM ${sql.identifier(step.wipe.table)} WHERE NOT (${kept(step.wipe)})`)
+    }
   })
 
-  const after = await count(payload)
+  const after = await count(payload, reversed)
   const left = Object.entries(after.delete).filter(([, n]) => n > 0)
-  if (left.length || after.keptAccounts !== before.keptAccounts) {
+  if (left.length || JSON.stringify(after.keep) !== JSON.stringify(before.keep)) {
     throw new Error(`Wipe incomplete: ${JSON.stringify(after)}`)
   }
 }

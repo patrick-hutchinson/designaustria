@@ -293,9 +293,9 @@ migration/wordpress/
 ├── lib/                          mysql client, php-unserialize, parseIdList, upsert, mappers
 ├── scripts/lib-env.ts            Payload startup: local-DB guard, no schema push, migrations up-to-date check
 ├── scripts/extract/              run.ts + one module per collection
-├── scripts/import/run.ts         wipe, then all collections in dependency order, --dry-run / --only=
-├── scripts/import/wipe.ts        deletes previously imported data, keeps the team's own accounts
-└── scripts/verify/run.ts
+├── scripts/import/               run.ts + one step per collection in steps/ (listed in dependency order in steps/index.ts),
+│                                 --dry-run / --only=; wipe.ts deletes what each step declares, keeps the team's own accounts
+└── scripts/verify/               run.ts + one step per collection in steps/, --only=
 ```
 
 ---

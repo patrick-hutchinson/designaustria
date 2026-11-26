@@ -18,8 +18,9 @@ migration/wordpress/
     ├── 00-load-dump.sh      load the SQL dump into MySQL
     ├── analyze/             read-only SQL behind the numbers in 01-analysis.md, plus check-helpers.ts
     ├── extract/             MySQL → cleaned, deduplicated JSON in .data/wp-extract/
-    ├── import/              JSON → Payload via Local API: wipe previous import, then create (keeps the team's own accounts)
-    └── verify/              compares Payload with the extract, fails on any mismatch
+    ├── import/              JSON → Payload via Local API: wipe previous import, then create (keeps the team's own accounts).
+    │                        One step per entity in steps/, in dependency order in steps/index.ts
+    └── verify/              compares Payload with the extract, fails on any mismatch. One step per entity in steps/
 ```
 
 Data stays in `.data/` (gitignored): the raw dump, analysis output and extracted JSON.
@@ -76,7 +77,7 @@ export DATABASE_URL=postgres://payload:payload@127.0.0.1:5433/payload
 npm run wp:extract                    # dump → .data/wp-extract/*.json + _report.json (warnings)
 npm run wp:import -- --dry-run        # what would be wiped and written
 npm run wp:import                     # wipe previous import, then write; --only=users,members upserts without wiping
-npm run wp:verify                     # fails on any mismatch with the extract
+npm run wp:verify                     # fails on any mismatch with the extract; --only=members checks one entity
 ```
 
 - The import **refuses non-local databases** unless `--allow-remote` is passed (`.env.local` points at Neon).
@@ -84,6 +85,18 @@ npm run wp:verify                     # fails on any mismatch with the extract
 - Reports with details (may contain personal values) go to `.data/wp-extract/_report.json` and `.data/wp-import/_report.json`.
 - On the anonymised dump (published profiles only, plan §3.1): 116 categories, 1,215 users, 102 organisations,
   1,293 members (10 duplicates merged), 181 organisation links (108 admins). The first import takes about a minute, mostly password hashing.
+
+### Adding an entity
+
+Extract runs everything in one go, so the output files always agree with each other (e.g. categories only keep terms used by
+something migrated). Import and verify are split by entity:
+
+1. `scripts/extract/<entity>.ts`, called from `extract/run.ts`; add its file to `EXTRACT_FILES` and its type to `lib/extract-types.ts`.
+2. `scripts/import/steps/<entity>.ts`: an `ImportStep` (`name`, what the full run wipes, `run`). Add it to `steps/index.ts`
+   after the steps it references.
+3. `scripts/verify/steps/<entity>.ts` with the same `name`, added to `verify/steps/index.ts`.
+
+Mapping that other content types will need too (dates, HTML → Lexical, slugs, redirects) goes in `lib/`, not in the entity's mappers.
 
 ## Rerunning safely
 

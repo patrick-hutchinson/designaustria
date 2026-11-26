@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 import React from 'react'
 
 import config from '@/payload.config'
-import { Event } from '@/components/Event/Event'
+import { Events } from '@/components/Events/Events'
 import { getAlternates, isLocale } from '@/i18n'
 
 // Render on every request, so new events from the admin show up immediately
@@ -31,22 +31,22 @@ export default async function EventsPage(props: Props) {
   const payload = await getPayload({ config })
 
   // Local API: queries the database directly (no HTTP request).
-  // Placeholder until the real list (upcoming/past, filters, pagination) is built: newest 20.
+  // Only the fields the list needs. Upcoming/past, filters and pagination are still to do.
   const { docs: events } = await payload.find({
     collection: 'events',
-    where: { visibility: { not_equals: 'hidden' } }, // hidden events stay in the admin only
+    // Hidden events stay in the admin only. No filter on slug: in English, an empty slug falls back to the German one.
+    where: { visibility: { not_equals: 'hidden' } },
+    select: { title: true, slug: true },
     sort: '-startsAt', // newest first
-    limit: 20,
+    pagination: false, // all of them, not just the first 10
+    depth: 0,
     locale, // 'de' or 'en', taken from the URL
   })
 
   return (
     <div className="events">
       <h1>{locale === 'de' ? 'Veranstaltungen' : 'Events'}</h1>
-      {events.length === 0 && <p>No events yet — add one in the admin panel.</p>}
-      {events.map((event) => (
-        <Event key={event.id} event={event} locale={locale} />
-      ))}
+      <Events events={events} locale={locale} />
     </div>
   )
 }

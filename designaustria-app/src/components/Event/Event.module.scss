@@ -1,4 +1,15 @@
+.event {
+  address {
+    font-style: normal;
+  }
+}
+
 .media {
   height: 200px;
   width: auto;
+}
+
+// Keep the line breaks from the textarea.
+.text {
+  white-space: pre-line;
 }

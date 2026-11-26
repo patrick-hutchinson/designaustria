@@ -278,8 +278,11 @@ Event documents (programme PDFs, press releases) go in the public `media`, since
    and venue, newest first, without hidden events.
 2. ✅ `lib/event-mappers.ts`, `lib/dates.ts`, `lib/slugs.ts`, `lib/wp-html.ts`, `lib/html-to-lexical.ts` + unit tests.
 3. ✅ Categories extract extended to event terms; `extract/events.ts`; the `events` import and verify steps. On the anonymised dump and a local Postgres.
-4. Frontend (not part of the migration, but needed before go-live): a new events list with upcoming/past, filters on
-   categories and type, pagination (1,400 events), respect for `visibility`, and a detail page `/[locale]/events/[slug]` that looks up `slug` in the current locale.
+4. Frontend (not part of the migration, but needed before go-live):
+   - ✅ List `/[locale]/events` (linked titles, like members; hidden events left out) and detail page `/[locale]/events/[slug]`.
+     The detail page looks up `slug` in the current locale, then in German (for events without an English slug), redirects
+     `/en/events/<de-slug>` to the English slug where there is one, and sets hreflang per locale.
+   - Still to do in the list: upcoming/past, filters on categories and type, pagination (1,400 events).
 5. At cutover: together with members (02-plan §8), in the same run, + redirects.
 
 Steps 1–3 don't depend on the open decisions in §9.

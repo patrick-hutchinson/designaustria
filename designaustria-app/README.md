@@ -24,6 +24,21 @@ After you click the `Deploy` button above, you'll want to have standalone copy o
 
 That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
 
+#### Database schema in development: don't run `payload migrate`
+
+`npm run dev` keeps the schema of the database it talks to (`DATABASE_URL`, e.g. the Neon dev database in `.env.local`)
+up to date by **pushing** it: Payload compares the database with the collections and changes it directly. It doesn't
+run the files in `src/migrations` and doesn't record them as run.
+
+So **don't run `npm run payload -- migrate` on a database you use with `npm run dev`.** It would try to apply migrations
+whose changes the push already made, and fail (e.g. `type … already exists`). After a schema change, just restart
+`npm run dev`.
+
+The migrations in `src/migrations` are for deployed databases: Vercel builds run them (`npm run ci`). After changing a
+collection, create one with `npm run payload -- migrate:create <name>` and commit it with the change. The one local
+database that uses migrations instead of pushes is the WordPress import's Docker database (see
+`migration/wordpress/README.md`); don't point `npm run dev` at that one.
+
 #### Docker (Optional)
 
 If you prefer to use Docker for local development instead of a local MongoDB instance, the provided docker-compose.yml file can be used.

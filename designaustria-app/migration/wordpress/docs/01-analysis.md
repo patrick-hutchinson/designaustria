@@ -7,8 +7,10 @@ All numbers below are reproducible with `scripts/analyze/run.sh`. Raw output is 
 > placeholders such as `user_<id>@example.com`, `TestVorname_<id>` and `AT99TESTIBAN…`. Placeholder IDs differ between
 > tables, so emails can't be compared across tables (for example user ↔ member, or guest orders ↔ users).
 > Every user's password hash is one of two dummy values. Relationships stored as IDs are intact.
-> **Not anonymised:** attachment file names (`_wp_attached_file`, attachment titles) and post slugs (`post_name`,
-> `_wp_old_slug`). Some certificate PDFs and many member slugs carry the person's real name, so handle the dump as personal data.
+> **Post slugs are anonymised too:** every published post's `post_name` is `post-<id>` (members, communities, events, news,
+> pages, publications), while the live site has real slugs (e.g. `/veranstaltung/orf-lange-nacht-der-museen-2/`).
+> **Not anonymised:** attachment file names (`_wp_attached_file`, attachment titles) and old slugs (`_wp_old_slug`). Some
+> certificate PDFs and many old slugs carry the person's real name, so handle the dump as personal data.
 
 ---
 

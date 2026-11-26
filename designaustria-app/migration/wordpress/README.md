@@ -10,7 +10,8 @@ Nothing in this folder runs automatically.
 migration/wordpress/
 ├── docs/
 │   ├── 01-analysis.md       how the WP database is structured
-│   └── 02-plan.md           WP → Payload mapping and decisions
+│   ├── 02-plan.md           WP → Payload mapping and decisions (people and organisations)
+│   └── 03-events-plan.md    WP → Payload mapping for events (extends the `events` collection)
 ├── config/merges.json       reviewed decisions for duplicate member profiles (plan §4)
 ├── docker-compose.yml       throwaway MySQL 8.4 to read the dump + local Payload Postgres
 ├── lib/                     parsers and mappers (PHP unserialize, ACF ids/repeaters, status split, merges, upsert) + unit tests

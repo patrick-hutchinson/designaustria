@@ -1,4 +1,4 @@
-// Categories used by members, organisations and events (ACF taxonomy field da_category), plus their parents,
+// Categories used by members, organisations, events and posts (ACF taxonomy field da_category, and the posts' term links), plus their parents,
 // with the English title from Polylang's term_translations where one exists.
 
 import type { ExtractedCategory } from '../../lib/extract-types'
@@ -28,7 +28,7 @@ export async function extractCategories(conn: WpConnection, usedTermIds: Set<num
   const include = new Set<number>()
   for (const id of usedTermIds) {
     if (!byId.has(id)) {
-      report.warn('category.missing-term', `term ${id}`, 'referenced by a member, organisation or event but no longer exists; dropped')
+      report.warn('category.missing-term', `term ${id}`, 'referenced by a member, organisation, event or post but no longer exists; dropped')
       continue
     }
     for (let current: number | undefined = id; current && !include.has(current); current = byId.get(current)?.parent) {

@@ -178,12 +178,39 @@ export interface ExtractedEvent {
   }
 }
 
+/** A post (the news). */
+export interface ExtractedPost {
+  /** WordPress ID of the German post (of the English one for posts that only exist in English) */
+  legacyWpId: number
+  title: Localized
+  slug: Localized
+  /** ISO timestamp in UTC */
+  publishedAt: string
+  visibility: 'everywhere' | 'notOnHome' | 'hidden'
+  /** WordPress term IDs (German terms) */
+  categories: number[]
+  tags: string[]
+  badge: string | null
+  excerpt: Localized
+  /** Cleaned HTML (lib/wp-html.ts); the import converts it to Lexical. Inline images are `[[wp-image:<id>]]` paragraphs. */
+  body: Localized
+  legacy: {
+    wpStatus: 'publish' | 'private'
+    enWpId: number | null
+    authorWpId: number | null
+    thumbnailWpId: number | null
+    imageWpIds: number[]
+    inlineImageWpIds: number[]
+    documentWpIds: number[]
+  }
+}
+
 /** An old URL that the pattern redirects don't cover (03-events-plan §4.7). Paths without trailing slash. */
 export interface ExtractedRedirect {
-  entity: 'event'
+  entity: 'event' | 'post'
   legacyWpId: number
   locale: 'de' | 'en'
-  /** e.g. /veranstaltung/old-slug */
+  /** e.g. /veranstaltung/old-slug or /neues/old-slug */
   from: string
   /** e.g. /de/events/new-slug */
   to: string
@@ -197,6 +224,7 @@ export const EXTRACT_FILES = {
   members: 'members.json',
   organizationMembers: 'organization-members.json',
   events: 'events.json',
+  posts: 'posts.json',
   redirects: 'redirects.json',
   report: '_report.json',
 } as const

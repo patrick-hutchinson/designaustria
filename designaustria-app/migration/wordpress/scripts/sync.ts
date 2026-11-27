@@ -27,12 +27,14 @@ const NEEDS: Record<string, string[]> = {
   organizations: ['categories'],
   'organization-members': ['organizations', 'members'],
   events: ['categories'],
+  posts: ['categories'],
 }
 
 // The groups to pick from, by the step they're for; the menu adds everything those steps need.
-const GROUPS: Record<'members' | 'events', { label: string; hint?: string; steps: string[] }> = {
+const GROUPS: Record<'members' | 'events' | 'posts', { label: string; hint?: string; steps: string[] }> = {
   members: { label: 'Members', hint: 'people and organisations', steps: ['organization-members'] },
   events: { label: 'Events', steps: ['events'] },
+  posts: { label: 'News', hint: 'posts', steps: ['posts'] },
 }
 
 // The steps plus everything they need, in import order.

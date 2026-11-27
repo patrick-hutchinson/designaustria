@@ -33,6 +33,7 @@ const RELATION_KEYS = [
   'da_community_logo',
   'da_images',
   'da_product',
+  '_thumbnail_id',
 ]
 
 const MAPPERS: [RegExp, (v: string) => Mapped<unknown>][] = [
@@ -47,7 +48,7 @@ const MAPPERS: [RegExp, (v: string) => Mapped<unknown>][] = [
   [/^da_online_\d+_da_online_type$/, mapLinkType],
   [/^da_online_\d+_da_online_link$/, normalizeUrl],
   [/^da_documents_\d+_da_document_type$/, mapDocumentType],
-  // events
+  // events and posts
   [/^da_event_type$/, mapEventType],
   [/^da_linked$/, mapEventVisibility],
   [/^da_event_details_da_event_admission_\d+_da_event_admission_type$/, mapAdmissionKind],
@@ -61,7 +62,7 @@ async function main() {
     conn,
     `SELECT m.post_id, p.post_type, m.meta_key, m.meta_value FROM wp_postmeta m
      JOIN wp_posts p ON p.ID = m.post_id
-     WHERE p.post_type IN ('member', 'community', 'event', 'attachment') AND m.meta_value IS NOT NULL AND m.meta_value <> ''`,
+     WHERE p.post_type IN ('member', 'community', 'event', 'post', 'attachment') AND m.meta_value IS NOT NULL AND m.meta_value <> ''`,
   )
 
   let serialized = 0

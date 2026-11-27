@@ -11,11 +11,12 @@ migration/wordpress/
 ├── docs/
 │   ├── 01-analysis.md       how the WP database is structured
 │   ├── 02-plan.md           WP → Payload mapping and decisions (people and organisations)
-│   └── 03-events-plan.md    WP → Payload mapping for events (replaces the `events` collection)
+│   ├── 03-events-plan.md    WP → Payload mapping for events (replaces the `events` collection)
+│   └── 04-news-plan.md      WP → Payload mapping for news (new `posts` collection)
 ├── config/merges.json       reviewed decisions for duplicate member profiles (plan §4)
 ├── docker-compose.yml       throwaway MySQL 8.4 to read the dump + local Payload Postgres
 ├── lib/                     parsers and mappers (PHP unserialize, ACF ids/repeaters, status split, merges, upsert,
-│                            Vienna dates, slugs, Polylang, WordPress HTML → Lexical, event fields) + unit tests
+│                            Vienna dates, slugs and redirects, Polylang, DE/EN documents, WordPress HTML → Lexical, event and post fields) + unit tests
 └── scripts/
     ├── 00-load-dump.sh      load the SQL dump into MySQL
     ├── analyze/             read-only SQL behind the numbers in 01-analysis.md, plus check-helpers.ts
@@ -91,7 +92,7 @@ npm run wp:verify                     # fails on any mismatch with the extract; 
 
 Or use the menu, which asks for the database (`.env.local`, a pasted URL such as preview's, or the local Docker one),
 the action (import or verify only) and what: All (wipes the previous import first), Members (people and organisations)
-or Events, each with the entities it depends on (`NEEDS` in `scripts/sync.ts`). It lists the tables to confirm, runs a
+Events or News, each with the entities it depends on (`NEEDS` in `scripts/sync.ts`). It lists the tables to confirm, runs a
 dry run, asks again (the host name, for a remote database), imports and verifies:
 
 ```sh
@@ -101,10 +102,10 @@ npm run wp:sync
 - The import **refuses non-local databases** unless `--allow-remote` is passed (`.env.local` points at Neon).
 - It stops if the database hasn't run all of `src/migrations`, and never pushes the schema itself.
 - Reports with details (may contain personal values) go to `.data/wp-extract/_report.json` and `.data/wp-import/_report.json`.
-- On the anonymised dump (published profiles only, plan §3.1): 132 categories, 1,215 users, 102 organisations,
-  1,293 members (10 duplicates merged), 181 organisation links (108 admins), 1,396 events (33 with English, 03-events-plan §5)
-  and 32 event redirects. The first import takes about a minute, mostly password hashing.
-- Event descriptions still contain `[[wp-image:<id>]]` placeholders where inline images go; the media step (not built yet)
+- On the anonymised dump (published profiles only, plan §3.1): 134 categories, 1,215 users, 102 organisations,
+  1,293 members (10 duplicates merged), 181 organisation links (108 admins), 1,396 events (33 with English, 03-events-plan §5),
+  32 event redirects, 453 posts (21 with English, 04-news-plan §5) and 5 post redirects. The first import takes about a minute, mostly password hashing.
+- Event descriptions and post texts still contain `[[wp-image:<id>]]` placeholders where inline images go; the media step (not built yet)
   replaces them. `wp:verify` prints how many are left.
 
 ### Adding an entity

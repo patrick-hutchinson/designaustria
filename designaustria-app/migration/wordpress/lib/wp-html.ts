@@ -1,12 +1,12 @@
 // WordPress post_content (Gutenberg or classic editor) → clean HTML that Payload's HTML → Lexical converter can read.
-// Shared by all content types with a body (events, later news, pages, publications). The extract runs this; the
+// Shared by all content types with a body (events, posts, later pages and publications). The extract runs this; the
 // import converts the result to Lexical (html-to-lexical.ts), because that needs the Payload config.
 //
 // - Gutenberg block comments are removed. Classic posts get WordPress's automatic paragraphs (wpautop).
 // - Layout wrappers (columns, groups, figures, divs, spans) are flattened to their content.
 // - Inline images become a placeholder paragraph `[[wp-image:<attachment id>]]` (+ the caption as a paragraph), which the
 //   media step replaces with an upload node once the files are in Payload (03-events-plan §4.6).
-// - Tables, buttons and videos are turned into paragraphs/links; product/newsletter blocks are dropped. All logged.
+// - Tables, buttons, videos and embeds (iframes) are turned into paragraphs/links; product/newsletter blocks are dropped. All logged.
 
 import { JSDOM } from 'jsdom'
 
@@ -136,8 +136,22 @@ export function cleanWpHtml(raw: string | null | undefined, { attachmentIdForUrl
     p.append(link)
     ;(video.closest('figure') ?? video).replaceWith(p)
   }
+  // Embeds (e.g. a Vimeo player) → link to the source
+  for (const iframe of [...body.querySelectorAll('iframe')]) {
+    issues.push({ code: 'flattened', detail: 'iframe' })
+    const src = iframe.getAttribute('src')?.trim()
+    if (!src || !/^https?:\/\//i.test(src)) {
+      iframe.remove()
+      continue
+    }
+    const link = el('a', src)
+    link.setAttribute('href', src)
+    const p = el('p')
+    p.append(link)
+    ;(iframe.closest('figure') ?? iframe).replaceWith(p)
+  }
   if (body.querySelector('.wp-block-buttons, .wp-block-button')) issues.push({ code: 'flattened', detail: 'buttons' })
-  body.querySelectorAll('iframe, script, style, form, input, button, noscript').forEach((node) => node.remove())
+  body.querySelectorAll('script, style, form, input, button, noscript').forEach((node) => node.remove())
 
   // Links: fix the mangled forms editors left ("mailto: x", "http:/x", spaces), drop the ones that aren't URLs (text kept).
   for (const link of [...body.querySelectorAll('a')]) {

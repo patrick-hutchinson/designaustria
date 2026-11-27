@@ -74,6 +74,7 @@ export interface Config {
     categories: Category;
     media: Media;
     events: Event;
+    posts: Post;
     'mux-video': MuxVideo;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -99,6 +100,7 @@ export interface Config {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
     'mux-video': MuxVideoSelect<false> | MuxVideoSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -692,6 +694,97 @@ export interface MuxVideo {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: number;
+  title: string;
+  /**
+   * Teaser for lists (optional). Without one, the start of the text is used.
+   */
+  excerpt?: string | null;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * An image or a video.
+   */
+  cover?:
+    | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'mux-video';
+        value: number | MuxVideo;
+      } | null);
+  /**
+   * Images and/or videos, in this order.
+   */
+  gallery?:
+    | (
+        | {
+            relationTo: 'media';
+            value: number | Media;
+          }
+        | {
+            relationTo: 'mux-video';
+            value: number | MuxVideo;
+          }
+      )[]
+    | null;
+  documents?: (number | Media)[] | null;
+  legacy?: {
+    wpStatus?: string | null;
+    /**
+     * WordPress ID of the English post
+     */
+    enWpId?: number | null;
+    /**
+     * WordPress user who wrote the post
+     */
+    authorWpId?: number | null;
+    /**
+     * Featured image
+     */
+    thumbnailWpId?: number | null;
+    imageWpIds?: number[] | null;
+    inlineImageWpIds?: number[] | null;
+    documentWpIds?: number[] | null;
+  };
+  publishedAt: string;
+  /**
+   * URL part, per language. Filled from the title if left empty.
+   */
+  slug?: string | null;
+  visibility: 'everywhere' | 'notOnHome' | 'hidden';
+  categories?: (number | Category)[] | null;
+  tags?: string[] | null;
+  /**
+   * e.g. DA
+   */
+  badge?: string | null;
+  /**
+   * WordPress post ID (German post), set by the migration.
+   */
+  legacyWpId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -741,6 +834,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'events';
         value: number | Event;
+      } | null)
+    | ({
+        relationTo: 'posts';
+        value: number | Post;
       } | null)
     | ({
         relationTo: 'mux-video';
@@ -1146,6 +1243,38 @@ export interface EventsSelect<T extends boolean = true> {
   type?: T;
   visibility?: T;
   categories?: T;
+  badge?: T;
+  legacyWpId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  title?: T;
+  excerpt?: T;
+  body?: T;
+  cover?: T;
+  gallery?: T;
+  documents?: T;
+  legacy?:
+    | T
+    | {
+        wpStatus?: T;
+        enWpId?: T;
+        authorWpId?: T;
+        thumbnailWpId?: T;
+        imageWpIds?: T;
+        inlineImageWpIds?: T;
+        documentWpIds?: T;
+      };
+  publishedAt?: T;
+  slug?: T;
+  visibility?: T;
+  categories?: T;
+  tags?: T;
   badge?: T;
   legacyWpId?: T;
   updatedAt?: T;

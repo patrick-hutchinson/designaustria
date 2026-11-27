@@ -103,3 +103,15 @@ function subsetEqual(expected: object, actual: unknown): boolean {
     return JSON.stringify(value) === JSON.stringify(other ?? null)
   })
 }
+
+const LOCALIZED = new Set(['de', 'en'])
+const isLocalized = (value: unknown): value is { de: unknown; en: unknown } =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).every((key) => LOCALIZED.has(key))
+
+/** The extract record as Payload returns it in one locale: every { de, en } replaced by that locale's value. */
+export function inLocale(value: unknown, locale: 'de' | 'en'): unknown {
+  if (isLocalized(value)) return value[locale]
+  if (Array.isArray(value)) return value.map((item) => inLocale(item, locale))
+  if (typeof value === 'object' && value !== null) return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, inLocale(v, locale)]))
+  return value
+}

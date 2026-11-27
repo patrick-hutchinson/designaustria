@@ -17,6 +17,7 @@ import { Report } from '../../lib/report'
 import { extractCategories } from './categories'
 import { extractEvents } from './events'
 import { extractMembers } from './members'
+import { extractPosts } from './posts'
 import { extractOrganizations } from './organizations'
 import { extractUsers } from './users'
 
@@ -64,10 +65,12 @@ async function main() {
       ]),
     )
 
-    const { events, redirects, source: eventPosts, notMigrated: eventsNotMigrated } = await extractEvents(conn, report)
+    const { events, redirects: eventRedirects, source: eventPosts, notMigrated: eventsNotMigrated } = await extractEvents(conn, report)
+    const { posts, redirects: postRedirects, source: wpPosts, notMigrated: postsNotMigrated } = await extractPosts(conn, report)
+    const redirects = [...eventRedirects, ...postRedirects]
 
     // Categories last: they keep only the terms something migrated uses.
-    const withCategories = [...organizations, ...members, ...events]
+    const withCategories = [...organizations, ...members, ...events, ...posts]
     const usedTerms = new Set(withCategories.flatMap((record) => record.categories))
     const categories = await extractCategories(conn, usedTerms, report)
     const known = new Set(categories.map((c) => c.legacyWpId))
@@ -80,6 +83,7 @@ async function main() {
     write(EXTRACT_FILES.members, members)
     write(EXTRACT_FILES.organizationMembers, organizationMembers)
     write(EXTRACT_FILES.events, events)
+    write(EXTRACT_FILES.posts, posts)
     write(EXTRACT_FILES.redirects, redirects)
 
     const summary = {
@@ -88,6 +92,7 @@ async function main() {
         communityPosts: communities.posts.length,
         memberPosts: memberPosts.posts.length,
         eventPosts,
+        wpPosts,
       },
       extracted: {
         categories: categories.length,
@@ -99,6 +104,8 @@ async function main() {
         membersMergedAway: members.reduce((sum, m) => sum + m.legacy.mergedFromWpIds.length, 0),
         events: events.length,
         eventsTranslated: events.filter((e) => e.legacy.enWpId !== null).length,
+        posts: posts.length,
+        postsTranslated: posts.filter((p) => p.legacy.enWpId !== null).length,
         redirects: redirects.length,
       },
       notMigrated: {
@@ -106,13 +113,14 @@ async function main() {
         members: notMigrated.reduce((sum, m) => sum + 1 + m.legacy.mergedFromWpIds.length, 0),
         users: droppedUsers.length,
         eventPostsByReason: eventsNotMigrated,
+        wpPostsByReason: postsNotMigrated,
       },
     }
     write(EXTRACT_FILES.report, { ...summary, warnings: report.toJSON() })
 
     console.log(`Extracted to ${path.relative(process.cwd(), EXTRACT_DIR)}`)
     console.table(summary.extracted)
-    console.log('Not migrated (not published on the current site, the login of such a profile, or an event without a start date):')
+    console.log('Not migrated (not published on the current site, the login of such a profile, an event without a start date, or a pending post):')
     console.table(summary.notMigrated)
     console.log('Warnings by type (details in _report.json):')
     console.table(report.counts())

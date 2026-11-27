@@ -15,12 +15,13 @@ import {
 import type { ExtractedEvent, ExtractedEventPrice, ExtractedRedirect, Localized } from '../../lib/extract-types'
 import { parseId, parseIdList } from '../../lib/ids'
 import { cleanText } from '../../lib/mappers'
-import { loadPostsWithMeta, query, type PostWithMeta, type WpConnection } from '../../lib/mysql'
+import { loadPostsWithMeta, type PostWithMeta, type WpConnection } from '../../lib/mysql'
 import { loadPostLanguages, loadPostTranslations, loadTermTranslations, type Language } from '../../lib/polylang'
 import { isEmptyRow, readRepeater } from '../../lib/repeater'
 import type { Report } from '../../lib/report'
-import { uniqueSlugs } from '../../lib/slugs'
+import { assignSlugs } from '../../lib/slugs'
 import { cleanWpHtml, type CleanHtml } from '../../lib/wp-html'
+import { attachmentLookup, loadContent, loadOldSlugs, pickDocuments } from '../../lib/wp-posts'
 
 const MIGRATED_STATUSES = new Set(['publish', 'private'])
 const DETAILS = 'da_event_details_da_event_'
@@ -50,48 +51,19 @@ export async function extractEvents(
   for (const { postId, key } of duplicateKeys) {
     if (!key.startsWith('_wp_old_')) report.warn('meta.duplicate-key', `event ${postId}`, `"${key}" stored more than once; newest value used`)
   }
-  const content = new Map(
-    (await query<{ ID: number; post_content: string }>(conn, `SELECT ID, post_content FROM wp_posts WHERE post_type = 'event'`)).map((row) => [
-      row.ID,
-      row.post_content,
-    ]),
-  )
+  const content = await loadContent(conn, 'event')
   const languages = await loadPostLanguages(conn, 'event')
   const postTranslations = await loadPostTranslations(conn)
   const termTranslations = await loadTermTranslations(conn)
   const attachmentIdForUrl = await attachmentLookup(conn)
-  const oldSlugs = await query<{ post_id: number; slug: string }>(
-    conn,
-    `SELECT m.post_id, m.meta_value AS slug FROM wp_postmeta m JOIN wp_posts p ON p.ID = m.post_id AND p.post_type = 'event'
-     WHERE m.meta_key = '_wp_old_slug' AND m.meta_value <> '' ORDER BY m.post_id, m.meta_id`,
-  )
-
-  const byId = new Map(posts.map((post) => [post.post.ID, post]))
-  const migrated = (id: number | undefined) => (id ? MIGRATED_STATUSES.has(byId.get(id)?.post.post_status ?? '') : false)
-  const notMigrated: Record<string, number> = {}
-  const skip = (reason: string) => (notMigrated[reason] = (notMigrated[reason] ?? 0) + 1)
 
   // 1. Pick the document posts: German posts, plus English ones without a migrated German partner.
-  const documents: { main: PostWithMeta; en: PostWithMeta | null }[] = []
-  for (const record of posts) {
-    const { post } = record
-    if (!MIGRATED_STATUSES.has(post.post_status)) {
-      skip(post.post_status)
-      continue
-    }
-    const language = languages.get(post.ID) ?? 'de'
-    if (!languages.has(post.ID)) report.warn('event.no-language', `event ${post.ID}`, 'no Polylang language; treated as German')
-    if (language === 'de') {
-      const enId = postTranslations.englishOf.get(post.ID)
-      if (enId && !migrated(enId)) {
-        report.warn('event.en-not-migrated', `event ${post.ID}`, `English post ${enId} is ${byId.get(enId)?.post.post_status ?? 'missing'}; not used`)
-      }
-      documents.push({ main: record, en: enId && migrated(enId) ? byId.get(enId)! : null })
-    } else if (!migrated(postTranslations.germanOf.get(post.ID))) {
-      report.warn('event.english-only', `event ${post.ID}`, 'no German post; the English texts are copied to German')
-      documents.push({ main: record, en: null })
-    }
-  }
+  const { documents, notMigrated } = pickDocuments(
+    posts,
+    { statuses: MIGRATED_STATUSES, languages, translations: postTranslations, entity: 'event' },
+    report,
+  )
+  const skip = (reason: string) => (notMigrated[reason] = (notMigrated[reason] ?? 0) + 1)
 
   // 2. Map each document
   const events: ExtractedEvent[] = []
@@ -183,43 +155,17 @@ export async function extractEvents(
   }
 
   // 3. Unique slugs per locale, and redirects for what the pattern rules don't cover
-  const redirects: ExtractedRedirect[] = []
-  for (const locale of ['de', 'en'] as const) {
-    const withSlug = events.filter((event) => locale === 'de' || event.legacy.enWpId !== null) // others use the German slug
-    const slugs = uniqueSlugs(withSlug.map((event) => ({ id: event.legacyWpId, slug: event.slug[locale], title: event.title[locale] })))
-    for (const event of withSlug) {
-      const { slug, changedFrom } = slugs.get(event.legacyWpId)!
-      event.slug[locale] = slug
-      if (changedFrom === undefined) continue
-      report.warn('event.slug-changed', `event ${event.legacyWpId}`, `${locale} slug "${changedFrom ?? ''}" → "${slug}"`)
-      if (changedFrom && event.visibility !== 'hidden') {
-        redirects.push({ entity: 'event', legacyWpId: event.legacyWpId, locale, from: oldPath(locale, changedFrom), to: newPath(locale, slug), reason: 'slug-changed' })
-      }
-    }
-  }
-  const eventOfPost = new Map<number, { event: ExtractedEvent; locale: Language }>()
-  for (const event of events) {
-    const englishOnly = languages.get(event.legacyWpId) === 'en'
-    eventOfPost.set(event.legacyWpId, { event, locale: englishOnly ? 'en' : 'de' })
-    if (!englishOnly && event.legacy.enWpId) eventOfPost.set(event.legacy.enWpId, { event, locale: 'en' })
-  }
-  const current = { de: new Set(events.map((e) => e.slug.de)), en: new Set(events.map((e) => e.slug.en)) }
-  const seen = new Set<string>()
-  for (const { post_id, slug: old } of oldSlugs) {
-    const target = eventOfPost.get(post_id)
-    if (!target || target.event.visibility === 'hidden') continue
-    const { event, locale } = target
-    const slug = event.slug[locale]!
-    const key = `${locale}:${old}`
-    if (old === slug || seen.has(key)) continue
-    if (current[locale].has(old)) {
-      report.warn('event.old-slug-taken', `event ${event.legacyWpId}`, `old ${locale} slug "${old}" is now another event's slug; no redirect`)
-      continue
-    }
-    seen.add(key)
-    redirects.push({ entity: 'event', legacyWpId: event.legacyWpId, locale, from: oldPath(locale, old), to: newPath(locale, slug), reason: 'old-slug' })
-  }
-  redirects.sort((a, b) => a.locale.localeCompare(b.locale) || a.from.localeCompare(b.from))
+  const redirects = assignSlugs(
+    events,
+    {
+      entity: 'event',
+      oldPath,
+      newPath,
+      oldSlugs: await loadOldSlugs(conn, 'event'),
+      englishOnly: new Set(events.filter((e) => languages.get(e.legacyWpId) === 'en').map((e) => e.legacyWpId)),
+    },
+    report,
+  )
 
   return { events, redirects, source: posts.length, notMigrated }
 }
@@ -301,21 +247,5 @@ function compareWithEnglish(de: PostWithMeta, en: PostWithMeta, report: Report) 
   for (const key of ['da_event_from', 'da_event_to', 'da_event_type'] as const) {
     const [a, b] = [de.meta[key]?.trim() ?? '', en.meta[key]?.trim() ?? '']
     if (a !== b) report.warn('event.en-differs', `event ${de.post.ID}`, `${key}: "${a}" (de) vs "${b}" (en ${en.post.ID}); German used`)
-  }
-}
-
-/** Attachment ID for an uploads URL, via _wp_attached_file (also for resized copies like name-300x200.jpg). */
-async function attachmentLookup(conn: WpConnection): Promise<(url: string) => number | null> {
-  const rows = await query<{ post_id: number; file: string }>(
-    conn,
-    `SELECT post_id, meta_value AS file FROM wp_postmeta WHERE meta_key = '_wp_attached_file' ORDER BY post_id`,
-  )
-  const byFile = new Map<string, number>()
-  for (const { post_id, file } of rows) if (!byFile.has(file)) byFile.set(file, post_id)
-  return (url) => {
-    const path = /\/wp-content\/uploads\/(.+)$/.exec(url.split(/[?#]/)[0])?.[1]
-    if (!path) return null
-    const file = decodeURIComponent(path)
-    return byFile.get(file) ?? byFile.get(file.replace(/-\d+x\d+(\.\w+)$/, '$1')) ?? byFile.get(file.replace(/-scaled(\.\w+)$/, '$1')) ?? null
   }
 }

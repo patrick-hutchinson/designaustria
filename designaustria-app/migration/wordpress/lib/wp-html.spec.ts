@@ -59,6 +59,15 @@ describe('cleanWpHtml', () => {
     expect(result.issues.map((issue) => issue.detail).sort()).toEqual(['buttons', 'table', 'video'])
   })
 
+  it('turns an embedded player into a link to its source', () => {
+    const raw = '<p>Video:</p>\n<div style="padding:56% 0 0 0;position:relative;"><iframe style="position: absolute;" src="https://player.vimeo.com/video/705714750?h=21dfe78a80" frameborder="0" allowfullscreen="allowfullscreen"></iframe></div>'
+    const result = cleanWpHtml(raw)
+    expect(result.html).toBe(
+      '<p>Video:</p>\n<p><a href="https://player.vimeo.com/video/705714750?h=21dfe78a80">https://player.vimeo.com/video/705714750?h=21dfe78a80</a></p>',
+    )
+    expect(result.issues).toEqual([{ code: 'flattened', detail: 'iframe' }])
+  })
+
   it('reports dropped blocks and shortcodes, keeping shortcode text', () => {
     const result = cleanWpHtml('<!-- wp:acf/product {"id":"block_1"} /-->\n<!-- wp:shortcode -->\n[modula id="35842"]\n<!-- /wp:shortcode -->\n<!-- wp:paragraph --><p>[ding] plus</p><!-- /wp:paragraph -->')
     expect(result.issues).toEqual([

@@ -238,7 +238,7 @@ Communities are listed on the site via the "Block Gesellschaften" block, filtere
 
 | Type | Count | Notes |
 |---|---|---|
-| `post` (news) | 1,953 | 1,412 pending (old imports?), DE/EN via Polylang |
+| `post` (news) | 1,953 | 465 published; 1,412 pending are the 2011–2020 old-site import and not public. DE/EN via Polylang. See [04-news-plan.md](04-news-plan.md) |
 | `event` | 1,448 | ACF: type, from/to, location, opening hours, prices, links |
 | `publication` | 261 | ACF: subtitle, author (member or external), ISBN, publisher, year, product |
 | `page` | 127 | Gutenberg + ACF blocks |

@@ -119,13 +119,13 @@ export function mapEventType(value: string | null | undefined): Mapped<'internal
   return key ? { value: null, warning: `event.type: unknown value "${key}"` } : { value: null }
 }
 
-/** da_linked; missing or empty (older events) means everywhere. */
+/** da_linked (events and posts); missing or empty (older posts) means everywhere. */
 export function mapVisibility(value: string | null | undefined): Mapped<'everywhere' | 'notOnHome' | 'hidden'> {
   const key = value?.trim()
   if (!key || key === 'all') return { value: 'everywhere' }
   if (key === 'nostart') return { value: 'notOnHome' }
   if (key === 'none') return { value: 'hidden' }
-  return { value: 'everywhere', warning: `event.visibility: unknown value "${key}"` }
+  return { value: 'everywhere', warning: `da_linked: unknown value "${key}"` }
 }
 
 const hhmm = (time: string | null | undefined) => /^(\d{1,2}):(\d{2})/.exec(time?.trim() ?? '')?.slice(1, 3).map((part, i) => (i === 0 ? part.padStart(2, '0') : part)).join(':') ?? null

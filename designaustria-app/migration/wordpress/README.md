@@ -12,7 +12,10 @@ migration/wordpress/
 │   ├── 01-analysis.md       how the WP database is structured
 │   ├── 02-plan.md           WP → Payload mapping and decisions (people and organisations)
 │   ├── 03-events-plan.md    WP → Payload mapping for events (replaces the `events` collection)
-│   └── 04-news-plan.md      WP → Payload mapping for news (new `posts` collection)
+│   ├── 04-news-plan.md      WP → Payload mapping for news (new `posts` collection)
+│   ├── 05-pages-plan.md     WP → Payload mapping for pages (new `pages` collection and layout blocks; plan only)
+│   ├── 06-products-plan.md  WP publications → Payload (new `products` collection) + Vendure shop; plan only
+│   └── 07-shop-plan.md      WooCommerce → Vendure: other products, customers, order archive, downloads; plan only
 ├── config/merges.json       reviewed decisions for duplicate member profiles (plan §4)
 ├── docker-compose.yml       throwaway MySQL 8.4 to read the dump + local Payload Postgres
 ├── lib/                     parsers and mappers (PHP unserialize, ACF ids/repeaters, status split, merges, upsert,

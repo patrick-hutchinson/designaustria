@@ -207,6 +207,8 @@ Communities are listed on the site via the "Block Gesellschaften" block, filtere
 
 ## 5. Shop (WooCommerce)
 
+How this is migrated: [06-products-plan.md](06-products-plan.md) (publications) and [07-shop-plan.md](07-shop-plan.md) (the rest).
+
 - **Storage:** legacy post-based storage. Orders are `shop_order` posts with `wp_postmeta`. The HPOS tables (`wp_wc_orders*`)
   exist but are **empty**. `wp_wc_order_stats`, `wp_wc_order_product_lookup` and `wp_wc_customer_lookup` are analytics
   caches that can be rebuilt, so they're not needed.
@@ -224,9 +226,10 @@ Communities are listed on the site via the "Block Gesellschaften" block, filtere
     and fonts. 57 products are downloadable, with 459 download permissions and 465 download log entries.
 - **Products:** 248 (245 simple, 1 variable). 78 are virtual, 35 manage stock. 139 have `woo_expiry_date`, which hides
   them after an event date. 142 publications and 57 events link to their product via ACF `da_product`.
-- **Pricing:** 124 products have a `_sale_price`, often 50–70% of the regular price. There's also an unused draft
-  `o-discount` post titled "Mitgliederpreis" (member price). This suggests the sale price is the **member price**, applied
-  by theme code that isn't in the DB (unconfirmed).
+- **Pricing:** 124 products have a `_sale_price` ("Angebotspreis"), often 50–70% of the regular price. Only one has a
+  sale period. It works as the **member price**, applied by theme code that isn't in the DB: on the publication products,
+  buyers logged in with a member profile paid it in 243 of 248 order lines, guests paid the regular price in 128 of 136.
+  There's also an unused draft `o-discount` post titled "Mitgliederpreis". Prices include VAT (paid net ≈ price / 1.1).
 - **Payments:** Stripe only (card, EPS, Apple Pay, Google Pay). The order meta holds Stripe charge, intent and customer IDs.
 - **Invoices:** the WooCommerce PDF Invoices plugin. 777 orders have an invoice number, with sequences per year in
   `wp_wcpdf_invoice_number_20xx`, plus 4 credit notes. The **PDFs themselves aren't in the DB**.
@@ -275,11 +278,8 @@ The dump also contains some irrelevant tables and post types: Yoast, Admin Colum
 
 ## 8. Open questions (for designaustria)
 
-1. Is `_sale_price` the member price? If so, how is it applied (logged-in `member` role, or a specific status)?
-2. Which statuses pay which fee, and is the fee collection (SEPA, `payment_frequency`) handled in another system
+1. Which statuses pay which fee, and is the fee collection (SEPA, `payment_frequency`) handled in another system
    (an accounting tool) that the new site has to sync with?
-3. Does a community admin have extra rights today (editing the company profile, adding colleagues), or is it only a label?
-4. Can a person belong to several organisations? The data has 2 cases. Is that intended?
-5. Should guest orders be linked to member accounts by email on import?
-6. Do we need the full order history in Payload (for customers' "my orders" and downloads), or only as an archive/export?
-7. Can we get the `wp-content/uploads` folder and the `wp_options` table?
+2. Does a community admin have extra rights today (editing the company profile, adding colleagues), or is it only a label?
+3. Can a person belong to several organisations? The data has 2 cases. Is that intended?
+4. Can we get the `wp-content/uploads` folder and the `wp_options` table?

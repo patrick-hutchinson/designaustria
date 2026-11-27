@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useActionState, useState } from 'react'
 
-import { addToCart } from '@/app/(frontend)/[locale]/shop/actions'
+import { addToCart } from '@/app/(frontend)/[locale]/cart/actions'
 import { formatPrice } from '@/lib/vendure-format'
 
 import styles from './Shop.module.scss'
@@ -58,7 +58,7 @@ export function AddToCart({ variants, locale = 'de' }) {
       {state?.ok && (
         <p>
           {locale === 'de' ? 'Hinzugefügt. ' : 'Added. '}
-          <Link href={`/${locale}/shop/cart`}>{locale === 'de' ? 'Zum Warenkorb' : 'View cart'}</Link>
+          <Link href={`/${locale}/cart`}>{locale === 'de' ? 'Zum Warenkorb' : 'View cart'}</Link>
         </p>
       )}
       {state && !state.ok && <p role="alert">{state.message}</p>}

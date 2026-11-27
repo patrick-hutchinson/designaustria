@@ -1,0 +1,37 @@
+.product {
+  max-width: 48rem;
+}
+
+.subtitle {
+  font-size: 1.25rem;
+}
+
+.cover {
+  height: 400px;
+  width: auto;
+}
+
+.media {
+  height: 200px;
+  width: auto;
+}
+
+// Facts list: label and value on one line
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1.5rem;
+
+  dd {
+    margin: 0;
+  }
+}
+
+// Lets each label/value pair sit in the grid like direct children
+.row {
+  display: contents;
+}
+
+.buy {
+  margin: 2rem 0;
+}

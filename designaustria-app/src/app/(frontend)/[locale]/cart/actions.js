@@ -1,7 +1,7 @@
 'use server'
 
 // Server actions: run on the server when a form is submitted.
-// They change the cart in Vendure and then refresh the shop pages.
+// They change the cart in Vendure and then refresh the pages (the cart link in the header shows the count).
 
 import { revalidatePath } from 'next/cache'
 
@@ -31,7 +31,7 @@ export async function addToCart(_prevState, formData) {
     return { ok: false, message: error.message }
   }
 
-  revalidatePath('/[locale]/shop', 'layout') // update the cart count
+  revalidatePath('/[locale]', 'layout') // update the cart count in the header
   return { ok: true, message: null }
 }
 
@@ -52,12 +52,12 @@ export async function updateCartLine(formData) {
     await removeLine(lineId)
   }
 
-  revalidatePath('/[locale]/shop', 'layout')
+  revalidatePath('/[locale]', 'layout')
 }
 
 export async function removeCartLine(formData) {
   await removeLine(formData.get('lineId'))
-  revalidatePath('/[locale]/shop', 'layout')
+  revalidatePath('/[locale]', 'layout')
 }
 
 async function removeLine(lineId) {

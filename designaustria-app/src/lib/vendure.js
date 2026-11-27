@@ -53,7 +53,21 @@ export async function shopQuery(query, variables = {}, { locale, saveToken = fal
   return json.data
 }
 
-// Fields of the cart that the cart page and the cart link need.
+/**
+ * Number of items in the visitor's cart, for the cart link in the header. Without a shop session (cookie) there's no
+ * cart, so it doesn't ask the shop at all. 0 when the shop isn't reachable.
+ */
+export async function getCartCount() {
+  if (!(await cookies()).has(TOKEN_COOKIE)) return 0
+  try {
+    const { activeOrder } = await shopQuery(`{ activeOrder { totalQuantity } }`)
+    return activeOrder?.totalQuantity ?? 0
+  } catch {
+    return 0
+  }
+}
+
+// Fields of the cart that the cart page needs.
 export const ACTIVE_ORDER_FIELDS = `
   id
   code
@@ -68,6 +82,31 @@ export const ACTIVE_ORDER_FIELDS = `
     unitPriceWithTax
     linePriceWithTax
     featuredAsset { preview }
-    productVariant { id name product { name slug } }
+    productVariant { id name sku }
   }
 `
+
+/**
+ * The shop variant behind a Payload product, by its SKU (`products.shopSku`, 06-products-plan §3.3): live price, member
+ * price and stock, and the id that "add to cart" needs. null when the shop has no enabled variant with that SKU.
+ * Throws when the shop isn't reachable.
+ */
+export async function findVariantBySku(sku, locale) {
+  // The Shop API can't filter products by SKU, but its search index has the SKU; the search is fuzzy, so match exactly.
+  const { search } = await shopQuery(
+    `query FindSku($term: String!) { search(input: { term: $term, groupByProduct: false, take: 10 }) { items { sku productId } } }`,
+    { term: sku },
+    { locale },
+  )
+  const hit = search.items.find((item) => item.sku === sku)
+  if (!hit) return null
+
+  const { product } = await shopQuery(
+    `query Variant($id: ID!) {
+      product(id: $id) { variants { id name sku priceWithTax currencyCode stockLevel customFields { memberPrice } } }
+    }`,
+    { id: hit.productId },
+    { locale },
+  )
+  return product?.variants.find((variant) => variant.sku === sku) ?? null
+}

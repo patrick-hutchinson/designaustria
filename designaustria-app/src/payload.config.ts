@@ -17,6 +17,7 @@ import { Organizations } from './collections/Organizations'
 import { OrganizationMembers } from './collections/OrganizationMembers'
 import { Categories } from './collections/Categories'
 import { Posts } from './collections/Posts'
+import { Products } from './collections/Products'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -28,7 +29,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Members, Organizations, OrganizationMembers, Categories, Media, Events, Posts],
+  collections: [Users, Members, Organizations, OrganizationMembers, Categories, Media, Events, Posts, Products],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

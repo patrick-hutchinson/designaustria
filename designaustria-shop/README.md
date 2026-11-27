@@ -129,6 +129,12 @@ docker-compose up postgres_db
 docker-compose up redis
 ```
 
+## WordPress migration
+
+`migration/wordpress/` imports the shop products from the old WooCommerce shop (`npm run wp:seed`, `wp:import`,
+`wp:verify`). It reads the extract made in designaustria-app; the plans and instructions are in
+`designaustria-app/migration/wordpress/` (README and `docs/06-products-plan.md`).
+
 ## Plugins
 
 In Vendure, your custom functionality will live in [plugins](https://www.vendure.io/docs/plugins/).

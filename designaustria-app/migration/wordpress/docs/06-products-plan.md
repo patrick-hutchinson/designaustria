@@ -1,6 +1,8 @@
 # Migration plan: WordPress → Payload + Vendure (products, starting with publications)
 
-Status: **plan only**, nothing built yet. Same approach as [03-events-plan.md](03-events-plan.md) and
+Status: **steps 1–4 of §7 built** (shop setup and custom fields, `products` collection, mappers, extract/import/verify on
+both sides, menu), and run on the anonymised dump with local databases; results in §5.4. Of the frontend (step 5), the
+shop list and the product page are built; the media step (§6) and the cutover are still to do. Same approach as [03-events-plan.md](03-events-plan.md) and
 [04-news-plan.md](04-news-plan.md), and it reuses that pipeline and its shared helpers in `lib/`. It's the first plan
 that also writes to the **shop** (`designaustria-shop/`, Vendure 3.8), which has its own database. All numbers are from
 the anonymised dump `2026-11-09_wordpress-database_export.sql`.
@@ -127,7 +129,7 @@ The shared fields follow `Posts.ts` / `Events.ts`. Admin labels "Produkte" / "Pr
 | `publishedAt` | date | `post_date` (Vienna → UTC) | sort order of the list |
 | `shopSku` | text, indexed | `WP-<WC product id>` (§3.3) | empty = not for sale |
 | `legacyWpId` | number, unique | publication id | WordPress post ids are unique across post types, so later products can use their own post's id |
-| `legacy` | group, read-only: `wpPostType`, `enWpId`, `wcProductWpId`, `imageWpIds[]`, `documentWpIds[]`, `memberAuthorWpIds[]`, `wpStatus` | | for the media step and checking |
+| `legacy` | group, read-only: `wpPostType`, `enWpId`, `wcProductWpId`, `imageWpIds[]`, `inlineImageWpIds[]`, `documentWpIds[]`, `memberAuthorWpIds[]`, `wpStatus` | | for the media step and checking |
 
 **`publicationDetails` block** (one per publication, only added when one of its fields has a value):
 
@@ -187,8 +189,8 @@ product (2 publications → 1 WC product) simply gives both products the same SK
 ### 4.1 What's migrated
 
 - Publications: `publish` (253) and `private` (1, → `hidden`, no redirect). Drafts aren't migrated.
-- Every migrated publication is in the `Publikationen` category: the 31 that aren't (23 with no category at all) get it
-  added, logged as `product.category-added`. That keeps "all publications" a plain category filter.
+- Every migrated publication is in the `Publikationen` category: the 22 that aren't (24 published posts, 23 of them with
+  no category at all, minus 2 English partners) get it added, logged as `product.category-added`. That keeps "all publications" a plain category filter.
 - WC products: every one linked from a migrated publication (138). Status `publish` → enabled. WC products linked only
   from drafts or nothing are out of scope here (§1).
 
@@ -244,7 +246,9 @@ As news (04-news-plan §4.2–4.6), with the shared helpers:
 38 are downloadable (PDF editions, contract templates), and they **keep being sold, including to past buyers**. Vendure
 has no digital fulfilment built in, so:
 
-- This step gives the variant `legacyDownloadFiles` and no shipping.
+- This step gives the variant `legacyDownloadFiles` (JSON: the files and `_download_limit`) and no shipping. 20
+  `_downloadable_files` values have wrong PHP string lengths (the URLs were changed without updating them); they're read
+  by pattern and logged as `shop-product.download-files-repaired`, so the media step should check those paths.
 - A digital-products plugin in the shop (07-shop-plan §10) delivers the file after payment, from private storage,
   with WooCommerce's limits (`_download_limit`, mostly unlimited; `_download_expiry`, always unlimited).
 - Past buyers' download rights (`wp_woocommerce_downloadable_product_permissions`, 459 rows, with download counts) are
@@ -294,19 +298,45 @@ service queues are processed by the worker it started.
   `lib/shop-product-mappers.ts` (prices to cents, tax class, stock, SKU), with unit tests. `extract/categories.ts` adds
   the products' terms. Redirect rows for both.
 - **Payload import:** `steps/products.ts` after `categories` and `members`. Wipe and `--only` upsert as for news.
-- **Vendure import:** `designaustria-shop/migration/wordpress/import.ts` (step `shop-products`): a full run deletes
-  shop products with a `legacyWpId` (staff-made ones are kept), then creates them; `--only` upserts by `legacyWpId`.
-  Precondition check: the channel, the two tax categories and the `de` language exist, else it stops with what's missing.
+- **Shop seed:** `designaustria-shop/migration/wordpress/seed.ts`, idempotent: languages, the default channel (German,
+  EUR, prices incl. VAT), country AT and zone "Österreich", the four tax categories and rates of 07-shop-plan §3, and the
+  "Mitglieder" customer group. Shipping methods come with 07-shop-plan.
+- **Vendure import:** `designaustria-shop/migration/wordpress/import.ts` (step `shop-products`), in one transaction. It
+  upserts by `legacyWpId`, so imported products keep their ids across reruns (Vendure only soft-deletes, and order lines
+  point at variants). A full run also soft-deletes imported shop products that aren't in the extract any more (and clears
+  their `legacyWpId`), so the result is the same as wipe + create; `--only=shop-products` doesn't remove anything.
+  Staff-made ones (no `legacyWpId`) are never touched. Precondition check: the channel, the tax categories and the
+  languages exist, else it stops with what's missing (a dry run only warns, since the menu dry-runs it before the seed).
+  Afterwards it processes the search index jobs it queued (about a minute).
 - **Verify (Payload):** all extracted products and no others, all in `Publikationen`, the `publicationDetails` block
   (authors, `authorsText`), SKUs, private ones hidden, sample field-by-field.
 - **Verify (Vendure):** all extracted shop products and no others, price, member price, tax category and stock per SKU,
   and **every `shopSku` in `products.json` has a variant** (the cross-check between the two sides, from the extract, so
   it doesn't need both databases at once).
-- **Menu:** `NEEDS.products = ['categories', 'members']`; a "Products" group (hint: publications) that runs the Payload
-  step and then asks for the shop database (`designaustria-shop/.env.local`, pasted URL, local Docker) and runs the shop
-  scripts with `cwd: designaustria-shop`.
+- **Menu:** `NEEDS.products = ['categories', 'members']` and a "Products" group for the Payload step. The shop is its own
+  system in the menu (Website, Shop or Both), since neither side needs the other: it asks for the shop database
+  (`designaustria-shop/.env.local`, pasted URL, local Docker) and runs the shop scripts with `cwd: designaustria-shop`:
+  seed and import as dry runs, confirm, seed, import, verify. After a website-only products import it reminds you of the
+  shop.
 - **check-helpers.ts:** reads publications and their WC products, so unreadable `da_publication_author`, `da_product` or
   unknown `_tax_class` / `_stock_status` values fail there.
+
+### 5.4 Result on the anonymised dump
+
+**252 products**: 251 published + 1 private (hidden) publications; the 2 English posts became the `en` locale of their
+German partner, none is English-only. 22 not on the homepage. All are in Publikationen (22 added); 17 more categories than
+before (151, mostly the Publikationen subcategories). 236 have a text, 244 a `publicationDetails` block: 61 links to 51
+members, 122 `authorsText` (64 names of unmigrated member authors in it, 2 author ids point at deleted posts), 236 years
+(`92` left empty), 109 ISBN/ISSN, 175 page counts. Members only: 14 full page, 17 documents. For the media step: 362
+image ids on 251 products, 96 document ids, no inline images.
+
+**139 products for sale** (one WC product is shared by two), **138 shop products**: all 10 %, 43 with a member price (15
+of them 0), 14 with tracked stock (9 in stock, 5 sold out), 38 downloadable (34 with a file, 19 of those repaired), 2 with
+an English name. 20 WC titles really differ from the publication's (`shop-product.title-differs`, the product title is
+used). 154 product redirects: 143 from old WC product URLs (`/produkt/…`, with 5 old WC slugs) and 11 `_wp_old_slug`.
+
+The extract now also turns `&shy;` into U+00AD everywhere (13 events and 1 post changed). The Payload step takes
+about 2 s, the shop import 4 s plus about a minute for the search index.
 
 ---
 
@@ -329,7 +359,10 @@ they're paid files). After upload: `cover` / `gallery` / `documents` in Payload,
    dump, local Postgres for both.
 5. Frontend (needed before go-live, not part of the migration): product detail page (with the `publicationDetails`
    block and the price and "in den Warenkorb" from the Shop API by SKU), and a publications list (products in
-   `Publikationen`).
+   `Publikationen`). *Built:* `/[locale]/products` lists all products from Payload, like the members, events and news
+   lists, and `/[locale]/products/[slug]` is the Payload product with price, member price and cart from the Shop API (the SKU is
+   found through its search index). The cart is at `/[locale]/cart`, with its link in the header. Still to do: the category filter (publications, series) and `membersOnly`, which
+   needs member login on the site.
 6. At cutover: together with the rest, + redirects. Shop products after go-live are edited in Vendure, so as with
    Payload the shop import **must not run on production again** after go-live.
 
@@ -352,4 +385,5 @@ Steps 1–4 don't depend on the open questions.
    *For now:* assumed to mean only logged-in members see the full page (`membersOnly.content`, §4.3); non-members see the
    title, subtitle, cover and authors.
 2. **URL structure** is the same site-wide question as 03-events-plan §9.1.
-   *For now:* `/de/products/<slug>` and `/en/products/<slug>` for every product (§4.5).
+   *For now:* `/de/products/<slug>` and `/en/products/<slug>` for every product (§4.5), the list at `/de/products`, the
+   cart at `/de/cart`. The menu still says "Shop".

@@ -68,7 +68,8 @@ The groups come from a heuristic (virtual + not downloadable = ticket, title pat
 ## 3. Shop setup (Proposed)
 
 A seed script in the shop (`designaustria-shop/migration/wordpress/seed.ts`), idempotent, run on every database
-before the import, so local, dev and production match. The import stops if any of it is missing.
+before the import, so local, dev and production match. The import stops if any of it is missing. Built with
+06-products-plan: channel, zone, tax and the customer group; the shipping methods are still to add.
 
 - **Channel:** default channel, currency EUR, default language `de` (+ `en`), **`pricesIncludeTax = true`**.
 - **Zone and tax:** zone "Österreich" (AT). Tax categories and rates:

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { removeCartLine, updateCartLine } from '@/app/(frontend)/[locale]/shop/actions'
+import { removeCartLine, updateCartLine } from '@/app/(frontend)/[locale]/cart/actions'
 import { assetUrl, formatPrice } from '@/lib/vendure-format'
 
 import styles from './Shop.module.scss'
@@ -8,16 +8,17 @@ import styles from './Shop.module.scss'
 /**
  * Cart lines with quantity/remove forms and the totals.
  * The forms call server actions directly, so this works without client JavaScript.
- * @param {{ order: object | null, locale: string }} props  order = Vendure's activeOrder
+ * @param {{ order: object | null, productSlugs: Record<string, string>, locale: string }} props
+ *   order = Vendure's activeOrder; productSlugs = SKU → slug of the product page in Payload
  */
-export function Cart({ order, locale = 'de' }) {
+export function Cart({ order, productSlugs = {}, locale = 'de' }) {
   const de = locale === 'de'
 
   if (!order || order.lines.length === 0) {
     return (
       <p>
         {de ? 'Dein Warenkorb ist leer. ' : 'Your cart is empty. '}
-        <Link href={`/${locale}/shop`}>{de ? 'Zum Shop' : 'Go to the shop'}</Link>
+        <Link href={`/${locale}/products`}>{de ? 'Zum Shop' : 'Go to the shop'}</Link>
       </p>
     )
   }
@@ -33,9 +34,11 @@ export function Cart({ order, locale = 'de' }) {
               <img src={assetUrl(line.featuredAsset, 'thumb')} alt="" width={80} height={80} />
             )}
             <div>
-              <Link href={`/${locale}/shop/${line.productVariant.product.slug}`}>
-                {line.productVariant.name}
-              </Link>
+              {productSlugs[line.productVariant.sku] ? (
+                <Link href={`/${locale}/products/${productSlugs[line.productVariant.sku]}`}>{line.productVariant.name}</Link>
+              ) : (
+                line.productVariant.name
+              )}
               <p>{price(line.unitPriceWithTax)}</p>
             </div>
 

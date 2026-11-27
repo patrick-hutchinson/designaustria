@@ -205,16 +205,87 @@ export interface ExtractedPost {
   }
 }
 
+/** The `publicationDetails` block of a product (06-products-plan §3.1). */
+export interface ExtractedPublicationDetails {
+  blockType: 'publicationDetails'
+  /** WordPress member post IDs, migrated members only */
+  authors: number[]
+  /** External authors and the names of member authors that aren't migrated */
+  authorsText: string | null
+  year: number | null
+  publisher: string | null
+  isbn: string | null
+  pages: number | null
+  format: string | null
+}
+
+/** A product (Payload `products`), for now made from a WordPress publication (06-products-plan). */
+export interface ExtractedProduct {
+  /** WordPress ID of the German post (of the English one for publications that only exist in English) */
+  legacyWpId: number
+  title: Localized
+  subtitle: Localized
+  slug: Localized
+  /** ISO timestamp in UTC */
+  publishedAt: string
+  visibility: 'everywhere' | 'notOnHome' | 'hidden'
+  /** WordPress term IDs (German terms), always including Publikationen or a subcategory */
+  categories: number[]
+  membersOnly: { content: boolean; documents: boolean }
+  /** `WP-<WC product id>`, null = not for sale */
+  shopSku: string | null
+  /** Cleaned HTML (lib/wp-html.ts); the import converts it to Lexical. Inline images are `[[wp-image:<id>]]` paragraphs. */
+  body: Localized
+  /** Empty when the publication has none of the fields */
+  details: ExtractedPublicationDetails[]
+  legacy: {
+    wpPostType: 'publication'
+    wpStatus: 'publish' | 'private'
+    enWpId: number | null
+    wcProductWpId: number | null
+    imageWpIds: number[]
+    inlineImageWpIds: number[]
+    documentWpIds: number[]
+    /** All member authors in WordPress, including those not migrated */
+    memberAuthorWpIds: number[]
+  }
+}
+
+/** A shop product (Vendure Product with one ProductVariant), from a WC product (06-products-plan §3.2). */
+export interface ExtractedShopProduct {
+  /** WC product post ID */
+  legacyWpId: number
+  /** `WP-<legacyWpId>` */
+  sku: string
+  /** German name (soft hyphens removed); `en` only for English publications */
+  name: Localized
+  slug: string
+  enabled: boolean
+  /** Integer cents, incl. VAT */
+  price: number
+  /** Integer cents, incl. VAT; null = no member price */
+  memberPrice: number | null
+  /** Vendure tax category name */
+  taxCategory: string
+  /** false = unlimited stock */
+  trackInventory: boolean
+  stockOnHand: number
+  /** Downloadable WC product (§4.6): its `_downloadable_files`, for the media step, and `_download_limit` (null = unlimited) */
+  download: { files: { name: string | null; file: string }[]; limit: number | null } | null
+  /** Payload products (legacyWpId) that show this shop product */
+  productWpIds: number[]
+}
+
 /** An old URL that the pattern redirects don't cover (03-events-plan §4.7). Paths without trailing slash. */
 export interface ExtractedRedirect {
-  entity: 'event' | 'post'
+  entity: 'event' | 'post' | 'product'
   legacyWpId: number
   locale: 'de' | 'en'
-  /** e.g. /veranstaltung/old-slug or /neues/old-slug */
+  /** e.g. /veranstaltung/old-slug, /neues/old-slug or /produkt/wc-slug */
   from: string
   /** e.g. /de/events/new-slug */
   to: string
-  reason: 'old-slug' | 'slug-changed'
+  reason: 'old-slug' | 'slug-changed' | 'wc-product'
 }
 
 export const EXTRACT_FILES = {
@@ -225,6 +296,8 @@ export const EXTRACT_FILES = {
   organizationMembers: 'organization-members.json',
   events: 'events.json',
   posts: 'posts.json',
+  products: 'products.json',
+  shopProducts: 'shop-products.json',
   redirects: 'redirects.json',
   report: '_report.json',
 } as const

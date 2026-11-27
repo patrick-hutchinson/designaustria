@@ -9,6 +9,7 @@ import * as migration_20261123_112351_mux_video_playback_mode from './20261123_1
 import * as migration_20261126_123053_events_rebuild from './20261126_123053_events_rebuild';
 import * as migration_20261126_132657_media_storage_fields from './20261126_132657_media_storage_fields';
 import * as migration_20261126_212331_posts from './20261126_212331_posts';
+import * as migration_20261127_141022_products from './20261127_141022_products';
 
 export const migrations = [
   {
@@ -64,6 +65,11 @@ export const migrations = [
   {
     up: migration_20261126_212331_posts.up,
     down: migration_20261126_212331_posts.down,
-    name: '20261126_212331_posts'
+    name: '20261126_212331_posts',
+  },
+  {
+    up: migration_20261127_141022_products.up,
+    down: migration_20261127_141022_products.down,
+    name: '20261127_141022_products'
   },
 ];

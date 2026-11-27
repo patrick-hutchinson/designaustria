@@ -75,6 +75,7 @@ export interface Config {
     media: Media;
     events: Event;
     posts: Post;
+    products: Product;
     'mux-video': MuxVideo;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -101,6 +102,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
+    products: ProductsSelect<false> | ProductsSelect<true>;
     'mux-video': MuxVideoSelect<false> | MuxVideoSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -785,6 +787,136 @@ export interface Post {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "products".
+ */
+export interface Product {
+  id: number;
+  title: string;
+  subtitle?: string | null;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * An image or a video.
+   */
+  cover?:
+    | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'mux-video';
+        value: number | MuxVideo;
+      } | null);
+  /**
+   * Images and/or videos, in this order.
+   */
+  gallery?:
+    | (
+        | {
+            relationTo: 'media';
+            value: number | Media;
+          }
+        | {
+            relationTo: 'mux-video';
+            value: number | MuxVideo;
+          }
+      )[]
+    | null;
+  documents?: (number | Media)[] | null;
+  /**
+   * Facts that only some kinds of product have, e.g. ISBN and pages of a publication.
+   */
+  details?:
+    | {
+        /**
+         * Authors with a member profile. Others go in "Other authors".
+         */
+        authors?: (number | Member)[] | null;
+        /**
+         * Shown after the linked authors.
+         */
+        authorsText?: string | null;
+        year?: number | null;
+        publisher?: string | null;
+        isbn?: string | null;
+        pages?: number | null;
+        /**
+         * e.g. Hardcover, 21 × 28 cm
+         */
+        format?: string | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'publicationDetails';
+      }[]
+    | null;
+  legacy?: {
+    /**
+     * e.g. publication
+     */
+    wpPostType?: string | null;
+    wpStatus?: string | null;
+    /**
+     * WordPress ID of the English post
+     */
+    enWpId?: number | null;
+    /**
+     * WooCommerce product
+     */
+    wcProductWpId?: number | null;
+    imageWpIds?: number[] | null;
+    inlineImageWpIds?: number[] | null;
+    documentWpIds?: number[] | null;
+    /**
+     * All member authors in WordPress, also those not migrated
+     */
+    memberAuthorWpIds?: number[] | null;
+  };
+  publishedAt: string;
+  /**
+   * URL part, per language. Filled from the title if left empty.
+   */
+  slug?: string | null;
+  visibility: 'everywhere' | 'notOnHome' | 'hidden';
+  /**
+   * Publications are in "Publikationen" or one of its subcategories.
+   */
+  categories?: (number | Category)[] | null;
+  /**
+   * SKU of the product variant in the shop. Empty = not for sale.
+   */
+  shopSku?: string | null;
+  /**
+   * Only for logged-in members.
+   */
+  membersOnly?: {
+    /**
+     * Others only see title, subtitle, cover and authors.
+     */
+    content?: boolean | null;
+    documents?: boolean | null;
+  };
+  /**
+   * WordPress post ID (German post), set by the migration.
+   */
+  legacyWpId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -838,6 +970,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'posts';
         value: number | Post;
+      } | null)
+    | ({
+        relationTo: 'products';
+        value: number | Product;
       } | null)
     | ({
         relationTo: 'mux-video';
@@ -1276,6 +1412,61 @@ export interface PostsSelect<T extends boolean = true> {
   categories?: T;
   tags?: T;
   badge?: T;
+  legacyWpId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "products_select".
+ */
+export interface ProductsSelect<T extends boolean = true> {
+  title?: T;
+  subtitle?: T;
+  body?: T;
+  cover?: T;
+  gallery?: T;
+  documents?: T;
+  details?:
+    | T
+    | {
+        publicationDetails?:
+          | T
+          | {
+              authors?: T;
+              authorsText?: T;
+              year?: T;
+              publisher?: T;
+              isbn?: T;
+              pages?: T;
+              format?: T;
+              id?: T;
+              blockName?: T;
+            };
+      };
+  legacy?:
+    | T
+    | {
+        wpPostType?: T;
+        wpStatus?: T;
+        enWpId?: T;
+        wcProductWpId?: T;
+        imageWpIds?: T;
+        inlineImageWpIds?: T;
+        documentWpIds?: T;
+        memberAuthorWpIds?: T;
+      };
+  publishedAt?: T;
+  slug?: T;
+  visibility?: T;
+  categories?: T;
+  shopSku?: T;
+  membersOnly?:
+    | T
+    | {
+        content?: T;
+        documents?: T;
+      };
   legacyWpId?: T;
   updatedAt?: T;
   createdAt?: T;

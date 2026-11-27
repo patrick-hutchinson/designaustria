@@ -3,14 +3,19 @@ import {
   DefaultJobQueuePlugin,
   DefaultSchedulerPlugin,
   DefaultSearchPlugin,
+  LanguageCode,
   VendureConfig,
 } from "@vendure/core";
 import { defaultEmailHandlers, EmailPlugin, FileBasedTemplateLoader } from "@vendure/email-plugin";
 import { AssetServerPlugin } from "@vendure/asset-server-plugin";
 import { DashboardPlugin } from "@vendure/dashboard/plugin";
 import { GraphiqlPlugin } from "@vendure/graphiql-plugin";
-import "dotenv/config";
+import dotenv from "dotenv";
 import path from "path";
+
+// .env.local first (your own values, e.g. the Neon dev branch), then .env. Variables already set in the environment win,
+// so the WordPress migration scripts can point DATABASE_URL elsewhere (migration/wordpress/README.md).
+dotenv.config({ path: [path.join(__dirname, "../.env.local"), path.join(__dirname, "../.env")], quiet: true });
 
 const IS_DEV = process.env.APP_ENV === "dev";
 // PORT wins because hosting platforms inject it into the environment at runtime, and that
@@ -64,7 +69,49 @@ export const config: VendureConfig = {
   },
   // When adding or altering custom field definitions, the database will
   // need to be updated. See the "Migrations" section in README.md.
-  customFields: {},
+  customFields: {
+    // Set by the WordPress import (migration/wordpress), see designaustria-app/migration/wordpress/docs/06-products-plan.md §3.2.
+    Product: [
+      {
+        name: "legacyWpId",
+        type: "int",
+        unique: true,
+        nullable: true,
+        readonly: true,
+        public: false,
+        label: [
+          { languageCode: LanguageCode.en, value: "WordPress ID" },
+          { languageCode: LanguageCode.de, value: "WordPress-ID" },
+        ],
+        description: [{ languageCode: LanguageCode.en, value: "WooCommerce product this was migrated from" }],
+      },
+    ],
+    ProductVariant: [
+      {
+        // Paid by customers in the "Mitglieder" group (the price calculation strategy that applies it is still to come).
+        name: "memberPrice",
+        type: "int",
+        nullable: true,
+        public: true,
+        min: 0,
+        ui: { component: "currency-form-input" },
+        label: [
+          { languageCode: LanguageCode.en, value: "Member price" },
+          { languageCode: LanguageCode.de, value: "Mitgliederpreis" },
+        ],
+        description: [{ languageCode: LanguageCode.en, value: "Incl. VAT, like the price. Empty = members pay the normal price" }],
+      },
+      {
+        // JSON { files: [{ name, file }], limit }: the WooCommerce download, until digital delivery exists (07-shop-plan §10).
+        name: "legacyDownloadFiles",
+        type: "text",
+        nullable: true,
+        readonly: true,
+        public: false,
+        label: [{ languageCode: LanguageCode.en, value: "WordPress download files" }],
+      },
+    ],
+  },
   plugins: [
     GraphiqlPlugin.init(),
     AssetServerPlugin.init({

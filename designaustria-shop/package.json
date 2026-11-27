@@ -13,7 +13,10 @@
     "build:dashboard": "vendure build dashboard",
     "start:server": "node ./dist/index.js",
     "start:worker": "node ./dist/index-worker.js",
-    "start": "vendure start all"
+    "start": "vendure start all",
+    "wp:seed": "tsx migration/wordpress/seed.ts",
+    "wp:import": "tsx migration/wordpress/import.ts",
+    "wp:verify": "tsx migration/wordpress/verify.ts"
   },
   "allowScripts": {
     "bcrypt": true,
@@ -33,6 +36,7 @@
   "devDependencies": {
     "@vendure/cli": "3.8.2",
     "ts-node": "10.9.2",
+    "tsx": "4.23.15",
     "typescript": "5.8.2",
     "vite": "7.3.8"
   }

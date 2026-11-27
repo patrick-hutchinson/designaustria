@@ -15,6 +15,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   quot: '"',
   apos: "'",
   nbsp: ' ',
+  shy: '\u00AD', // soft hyphen, kept: the frontend breaks long words there
   ndash: '–',
   mdash: '—',
   hellip: '…',

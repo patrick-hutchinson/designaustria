@@ -23,6 +23,7 @@ describe('text', () => {
     expect(decodeEntities('HFA-Studio GmbH &amp; Co KG')).toBe('HFA-Studio GmbH & Co KG')
     expect(decodeEntities('&quot;a&quot; &#8211; &#x00FC; &uuml;')).toBe('"a" – ü ü')
     expect(decodeEntities('&unknown; stays')).toBe('&unknown; stays')
+    expect(decodeEntities('Grafik&shy;designerinnen')).toBe('Grafik­designerinnen')
   })
 
   it('cleans text: trims, empty → null, keeps inner line breaks', () => {

@@ -14,12 +14,13 @@ migration/wordpress/
 │   ├── 03-events-plan.md    WP → Payload mapping for events (replaces the `events` collection)
 │   ├── 04-news-plan.md      WP → Payload mapping for news (new `posts` collection)
 │   ├── 05-pages-plan.md     WP → Payload mapping for pages (new `pages` collection and layout blocks; plan only)
-│   ├── 06-products-plan.md  WP publications → Payload (new `products` collection) + Vendure shop; plan only
+│   ├── 06-products-plan.md  WP publications → Payload (new `products` collection) + Vendure shop products
 │   └── 07-shop-plan.md      WooCommerce → Vendure: other products, customers, order archive, downloads; plan only
 ├── config/merges.json       reviewed decisions for duplicate member profiles (plan §4)
-├── docker-compose.yml       throwaway MySQL 8.4 to read the dump + local Payload Postgres
+├── docker-compose.yml       throwaway MySQL 8.4 to read the dump + local Payload and shop Postgres
 ├── lib/                     parsers and mappers (PHP unserialize, ACF ids/repeaters, status split, merges, upsert,
-│                            Vienna dates, slugs and redirects, Polylang, DE/EN documents, WordPress HTML → Lexical, event and post fields) + unit tests
+│                            Vienna dates, slugs and redirects, Polylang, DE/EN documents, WordPress HTML → Lexical, event, post, product
+│                            and shop product fields) + unit tests
 └── scripts/
     ├── 00-load-dump.sh      load the SQL dump into MySQL
     ├── analyze/             read-only SQL behind the numbers in 01-analysis.md, plus check-helpers.ts
@@ -93,10 +94,11 @@ npm run wp:import                     # wipe previous import, then write; --only
 npm run wp:verify                     # fails on any mismatch with the extract; --only=members checks one entity
 ```
 
-Or use the menu, which asks for the database (`.env.local`, a pasted URL such as preview's, or the local Docker one),
-the action (import or verify only) and what: All (wipes the previous import first), Members (people and organisations)
-Events or News, each with the entities it depends on (`NEEDS` in `scripts/sync.ts`). It lists the tables to confirm, runs a
-dry run, asks again (the host name, for a remote database), imports and verifies:
+Or use the menu. It first asks for the system: Website (Payload), Shop (Vendure, see below) or Both. Then the action
+(import or verify only), and per system the database (`.env.local`, a pasted URL such as preview's, or the local Docker
+one) and what. For the website: All (wipes the previous import first), Members (people and organisations), Events, News or
+Products, each with the entities it depends on (`NEEDS` in `scripts/sync.ts`). It lists the tables to confirm, runs a dry
+run, asks again (the host name, for a remote database), imports and verifies; with Both, the website first, then the shop:
 
 ```sh
 npm run wp:sync
@@ -108,8 +110,38 @@ npm run wp:sync
 - On the anonymised dump (published profiles only, plan §3.1): 134 categories, 1,215 users, 102 organisations,
   1,293 members (10 duplicates merged), 181 organisation links (108 admins), 1,396 events (33 with English, 03-events-plan §5),
   32 event redirects, 453 posts (21 with English, 04-news-plan §5) and 5 post redirects. The first import takes about a minute, mostly password hashing.
+- Products: 252 (the publications, 06-products-plan §5.4), 154 product redirects, and 138 shop products (below).
 - Event descriptions and post texts still contain `[[wp-image:<id>]]` placeholders where inline images go; the media step (not built yet)
   replaces them. `wp:verify` prints how many are left.
+
+### Migrating the shop products
+
+Products are two records (06-products-plan §1): the page in Payload (`products`, step `products` above) and the shop
+product in Vendure, in its own database. The shop side lives in `designaustria-shop/migration/wordpress/`, because it
+boots Vendure in-process, and reads the same extract. Both use the SKU `WP-<WC product id>`, so they run in either order.
+
+```sh
+# local shop database (once): start it and run the shop's migrations on it
+docker compose -f migration/wordpress/docker-compose.yml up -d --wait shop-db
+cd ../designaustria-shop
+export DATABASE_URL=postgres://vendure:vendure@127.0.0.1:5434/vendure
+npx vendure migrate --run            # or start the shop once on it
+
+npm run wp:seed                      # channel, zone "Österreich", tax categories and rates, "Mitglieder" group; idempotent
+npm run wp:import -- --dry-run       # what would be created, updated and removed
+npm run wp:import                    # upsert by legacyWpId, remove imported ones not in the extract; --only=shop-products removes nothing
+npm run wp:verify                    # every field per SKU, and every shopSku of products.json has a variant
+```
+
+Or `npm run wp:sync` in designaustria-app with the Shop system (or Both), which runs these for you. "What" is All (also
+removes imported shop products no longer in the extract) or Shop products (upsert only).
+
+- Same guard as the app: **refuses non-local databases** unless `--allow-remote`. The shop's `.env.local` points at its
+  Neon dev branch, a different host than the app's.
+- The shop databases are always migrated, never pushed, so the scripts **stop on any pending Vendure migration**.
+- One transaction; afterwards it waits for the search index jobs it queued (about a minute).
+- The report goes to `.data/wp-import/_shop-report.json`. **Never run the shop import on production after go-live**: shop
+  products are edited in Vendure from then on.
 
 ### Adding an entity
 

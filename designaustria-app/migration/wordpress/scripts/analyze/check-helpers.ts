@@ -22,6 +22,8 @@ import {
 } from '../../lib/mappers'
 import { connectWp, query } from '../../lib/mysql'
 import { looksSerialized, phpUnserialize } from '../../lib/php-unserialize'
+import { mapMembersAccess, parsePages, parsePublicationYear } from '../../lib/product-mappers'
+import { mapStock, mapTaxClass, parseDownloadFiles, priceToCents } from '../../lib/shop-product-mappers'
 
 const RELATION_KEYS = [
   'da_member_community',
@@ -33,6 +35,7 @@ const RELATION_KEYS = [
   'da_community_logo',
   'da_images',
   'da_product',
+  'da_publication_author',
   '_thumbnail_id',
 ]
 
@@ -54,7 +57,17 @@ const MAPPERS: [RegExp, (v: string) => Mapped<unknown>][] = [
   [/^da_event_details_da_event_admission_\d+_da_event_admission_type$/, mapAdmissionKind],
   [/^da_event_web_\d+_da_event_url$/, normalizeEventLink],
   [/^da_event_(from|to)$/, viennaToUtc],
+  // publications and WC products (06-products-plan)
+  [/^da_publication_year$/, parsePublicationYear],
+  [/^da_publication_sites$/, parsePages],
+  [/^da_members_access$/, (v) => ({ value: null, warning: mapMembersAccess(v).unknown.map((u) => `da_members_access: unknown value "${u}"`)[0] })],
+  [/^_tax_class$/, mapTaxClass],
+  [/^_stock_status$/, (v) => mapStock({ manageStock: 'no', stock: '', stockStatus: v })],
+  [/^_(regular|sale)_price$/, priceToCents],
 ]
+
+// WooCommerce wrote some of these with wrong string lengths; parseDownloadFiles reads those by pattern.
+const LENIENT_KEYS = new Set(['_downloadable_files'])
 
 async function main() {
   const conn = await connectWp()
@@ -62,7 +75,7 @@ async function main() {
     conn,
     `SELECT m.post_id, p.post_type, m.meta_key, m.meta_value FROM wp_postmeta m
      JOIN wp_posts p ON p.ID = m.post_id
-     WHERE p.post_type IN ('member', 'community', 'event', 'post', 'attachment') AND m.meta_value IS NOT NULL AND m.meta_value <> ''`,
+     WHERE p.post_type IN ('member', 'community', 'event', 'post', 'publication', 'product', 'attachment') AND m.meta_value IS NOT NULL AND m.meta_value <> ''`,
   )
 
   let serialized = 0
@@ -72,7 +85,16 @@ async function main() {
   let places = 0
   const unparsedPlaces: string[] = []
 
+  let repairedDownloads = 0
   for (const row of rows) {
+    if (LENIENT_KEYS.has(row.meta_key)) {
+      try {
+        if (parseDownloadFiles(row.meta_value).repaired) repairedDownloads++
+      } catch (error) {
+        unserializeFailures.push(`${row.post_type} ${row.post_id} ${row.meta_key}: ${(error as Error).message}`)
+      }
+      continue
+    }
     if (looksSerialized(row.meta_value)) {
       serialized++
       try {
@@ -106,6 +128,7 @@ async function main() {
 
   console.log(`meta rows checked: ${rows.length}, serialized: ${serialized}`)
   console.log(`unserialize failures: ${unserializeFailures.length}`)
+  console.log(`  (_downloadable_files with wrong string lengths, read by pattern: ${repairedDownloads})`)
   unserializeFailures.slice(0, 20).forEach((line) => console.log(`  ${line}`))
   console.log(`relation parse failures: ${relationFailures.length}`)
   relationFailures.slice(0, 20).forEach((line) => console.log(`  ${line}`))

@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import React from 'react'
+import React, { Suspense } from 'react'
 
-import { LanguageSwitcher } from '@/components/LanguageSwitcher/LanguageSwitcher'
-import { Menu } from '@/components/Menu/Menu'
 import { Header } from '@/components/Header/Header'
+import { CartLink, CartLinkFallback } from '@/components/Shop/CartLink'
 import { isLocale, locales } from '@/i18n'
 import '../styles.css'
 
@@ -39,7 +38,14 @@ export default async function RootLayout(props: {
   return (
     <html lang={locale}>
       <body>
-        <Header locale={locale} />
+        <Header
+          locale={locale}
+          cart={
+            <Suspense fallback={<CartLinkFallback locale={locale} />}>
+              <CartLink locale={locale} />
+            </Suspense>
+          }
+        />
 
         <main>{children}</main>
       </body>

@@ -41,6 +41,26 @@ services:
       timeout: 5s
       retries: 30
 
+  # Local shop (Vendure) database for the shop import (designaustria-shop/migration/wordpress).
+  # Use: DATABASE_URL=postgres://vendure:vendure@127.0.0.1:5434/vendure
+  shop-db:
+    image: postgres:17
+    container_name: designaustria-shop-db
+    environment:
+      POSTGRES_USER: vendure
+      POSTGRES_PASSWORD: vendure
+      POSTGRES_DB: vendure
+    ports:
+      - '127.0.0.1:5434:5432'
+    volumes:
+      - shop-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'vendure']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
 volumes:
   wp-mysql-data:
   payload-db-data:
+  shop-db-data:

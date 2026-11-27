@@ -18,6 +18,8 @@ import { extractCategories } from './categories'
 import { extractEvents } from './events'
 import { extractMembers } from './members'
 import { extractPosts } from './posts'
+import { extractProducts } from './products'
+import { extractShopProducts } from './shop-products'
 import { extractOrganizations } from './organizations'
 import { extractUsers } from './users'
 
@@ -67,10 +69,19 @@ async function main() {
 
     const { events, redirects: eventRedirects, source: eventPosts, notMigrated: eventsNotMigrated } = await extractEvents(conn, report)
     const { posts, redirects: postRedirects, source: wpPosts, notMigrated: postsNotMigrated } = await extractPosts(conn, report)
-    const redirects = [...eventRedirects, ...postRedirects]
+    // Products link to members (as authors), so they come after them. Merged-away duplicates point at the member they were merged into.
+    const migratedMemberOf = new Map(members.flatMap((m) => [m.legacyWpId, ...m.legacy.mergedFromWpIds].map((id) => [id, m.legacyWpId] as const)))
+    const {
+      products,
+      redirects: productRedirects,
+      source: publicationPosts,
+      notMigrated: productsNotMigrated,
+    } = await extractProducts(conn, { memberPosts: memberPosts.posts, migratedMemberOf }, report)
+    const { shopProducts, redirects: shopProductRedirects } = await extractShopProducts(conn, products, report)
+    const redirects = [...eventRedirects, ...postRedirects, ...productRedirects, ...shopProductRedirects]
 
     // Categories last: they keep only the terms something migrated uses.
-    const withCategories = [...organizations, ...members, ...events, ...posts]
+    const withCategories = [...organizations, ...members, ...events, ...posts, ...products]
     const usedTerms = new Set(withCategories.flatMap((record) => record.categories))
     const categories = await extractCategories(conn, usedTerms, report)
     const known = new Set(categories.map((c) => c.legacyWpId))
@@ -84,6 +95,8 @@ async function main() {
     write(EXTRACT_FILES.organizationMembers, organizationMembers)
     write(EXTRACT_FILES.events, events)
     write(EXTRACT_FILES.posts, posts)
+    write(EXTRACT_FILES.products, products)
+    write(EXTRACT_FILES.shopProducts, shopProducts)
     write(EXTRACT_FILES.redirects, redirects)
 
     const summary = {
@@ -93,6 +106,7 @@ async function main() {
         memberPosts: memberPosts.posts.length,
         eventPosts,
         wpPosts,
+        publicationPosts,
       },
       extracted: {
         categories: categories.length,
@@ -106,6 +120,9 @@ async function main() {
         eventsTranslated: events.filter((e) => e.legacy.enWpId !== null).length,
         posts: posts.length,
         postsTranslated: posts.filter((p) => p.legacy.enWpId !== null).length,
+        products: products.length,
+        productsForSale: products.filter((p) => p.shopSku).length,
+        shopProducts: shopProducts.length,
         redirects: redirects.length,
       },
       notMigrated: {
@@ -114,13 +131,14 @@ async function main() {
         users: droppedUsers.length,
         eventPostsByReason: eventsNotMigrated,
         wpPostsByReason: postsNotMigrated,
+        publicationPostsByReason: productsNotMigrated,
       },
     }
     write(EXTRACT_FILES.report, { ...summary, warnings: report.toJSON() })
 
     console.log(`Extracted to ${path.relative(process.cwd(), EXTRACT_DIR)}`)
     console.table(summary.extracted)
-    console.log('Not migrated (not published on the current site, the login of such a profile, an event without a start date, or a pending post):')
+    console.log('Not migrated (not published on the current site, the login of such a profile, an event without a start date, a pending post or a draft publication):')
     console.table(summary.notMigrated)
     console.log('Warnings by type (details in _report.json):')
     console.table(report.counts())

@@ -4,7 +4,7 @@ import { anyone, isStaff } from '@/access/roles'
 import { legacyWpIdField } from '@/fields/legacyWpId'
 
 // Focus areas, programme types and regions (e.g. "Grafikdesign", "Ausstellung", "Wien"). Migrated from the WordPress
-// `category` taxonomy: the terms used by members, organisations, events and news.
+// `category` taxonomy: the terms used by members, organisations, events, news and products.
 export const Categories: CollectionConfig = {
   slug: 'categories',
   admin: {

@@ -6,8 +6,9 @@ import { categories } from './categories'
 import { events } from './events'
 import { members } from './members'
 import { posts } from './posts'
+import { products } from './products'
 import { organizationMembers } from './organization-members'
 import { organizations } from './organizations'
 import { users } from './users'
 
-export const STEPS: ImportStep[] = [categories, users, organizations, members, organizationMembers, events, posts]
+export const STEPS: ImportStep[] = [categories, users, organizations, members, organizationMembers, events, posts, products]
